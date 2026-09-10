@@ -11,7 +11,9 @@ plugins {
 }
 
 dependencies {
-    implementation(libs.kotlinx.serialization.json)
+    // api, not implementation: :data and :sim-harness deserialize the same seed
+    // types this module defines, so the serialization runtime is part of the API.
+    api(libs.kotlinx.serialization.json)
 
     // Fixtures (average players, average pitch, standard fields) are shared by
     // the engine's own tests, :sim-harness and later :data. They live in
