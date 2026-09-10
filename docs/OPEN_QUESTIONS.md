@@ -4,9 +4,13 @@ Decisions that need the project owner. Each has a **working default** so that
 nothing is blocked while they are open — but several of them change the shape of
 the code, and the ones marked ⚑ are much cheaper to answer now than in Phase 5.
 
+**Q1, Q2 and Q3 were decided on 2026-09-10** (all three as proposed) and are
+kept below as a record of the reasoning. Q4–Q10 are still open and running on
+their defaults.
+
 ---
 
-## ⚑ Q1. How much of the world gets simulated ball by ball?
+## ✅ Q1 — DECIDED. How much of the world gets simulated ball by ball?
 
 Simulating every ball of every match on earth does not fit the Phase 8
 performance budget (a full world season in seconds on a mid-range phone). See
@@ -23,11 +27,13 @@ literally every ball simulated, that is buildable — but it changes the target
 platform, the save format and the Phase 8 goals, and I would want to agree that
 before Phase 2 rather than discover it in Phase 5.
 
-**Default if you say nothing:** three tiers as described.
+**Decided 2026-09-10:** three tiers as described. Binding on Phase 2
+(hot-path allocation discipline, event capture as a swappable sink) and on
+Phase 5 (the fitting task that generates Tier C's parameters from engine output).
 
 ---
 
-## ⚑ Q2. One country or many?
+## ✅ Q2 — DECIDED. One country or many?
 
 The brief's ladder is India-shaped: state cricket, U19/U23, a franchise T20
 auction, "India A". But it also asks for away tours and World Cups, which need
@@ -39,12 +45,14 @@ real selection, real players, but no domestic pyramid beneath them. Adding a
 second full pyramid later is data, not code, if the ladder is defined in the
 seed database rather than in Kotlin.
 
-**Default:** one full pyramid, others at international level only, ladder
-defined as data.
+**Decided 2026-09-10:** one full pyramid, others at international level only.
+Binding on Phase 1: the ladder, its competitions and its qualification rules
+live in the seed database, not in Kotlin, so a second pyramid is later a data
+addition rather than a rewrite.
 
 ---
 
-## ⚑ Q3. How much control does the player have during a match?
+## ✅ Q3 — DECIDED. How much control does the player have during a match?
 
 The user controls one cricketer. When batting, does he choose shots ball by
 ball, or set a posture?
@@ -59,7 +67,10 @@ manage, and then you watch.
 When the user's player is captain, he gets full tactical control of field and
 bowling changes, per the brief.
 
-**Default:** posture and instructions, not per-ball shot selection.
+**Decided 2026-09-10:** posture and instructions, not per-ball shot selection.
+Binding on Stage 4: the user's aggression setting and instructions enter shot
+selection as terms in `riskAppetite` and as constraints on the shot set — the
+same inputs an AI batter uses, never a separate code path.
 
 ---
 

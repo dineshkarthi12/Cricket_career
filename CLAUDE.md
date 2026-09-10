@@ -251,5 +251,16 @@ tests, wait for approval.
 | `docs/CALIBRATION.md` | Target bands, measurement method, and a log of every calibration run |
 | `docs/OPEN_QUESTIONS.md` | Decisions that need the project owner, each with a working default |
 
+### Decisions already taken
+
+- **World simulation is three-tiered** (Q1). Full ball-by-ball for the user's
+  matches and his direct rivals; a reduced-form model for the rest of the world
+  whose parameters are fitted from engine output, never hand-authored.
+- **One full domestic pyramid** (Q2), other nations at international level only.
+  The ladder is seed data, not Kotlin.
+- **The user sets posture and instructions, not shots** (Q3). His settings enter
+  Stage 4 as terms in the same shot-selection maths an AI batter uses — never a
+  parallel code path.
+
 Design docs are written **before** the code they describe, and updated in the
 same commit as any change that contradicts them.
