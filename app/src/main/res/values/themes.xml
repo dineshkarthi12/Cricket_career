@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark by default: the game is a dense text/numbers interface read at length. -->
+    <style name="Theme.CricketCareer" parent="android:Theme.Material.NoActionBar" />
+</resources>

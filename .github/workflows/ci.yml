@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The job that gates everything. Runs on a bare JDK with no Android SDK,
+  # which is exactly the point: the engine and the calibration harness must
+  # never acquire an Android dependency.
+  jvm:
+    name: Engine and harness (JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check
+        run: ./gradlew check --stacktrace
+
+      - name: Smoke test the calibration harness
+        run: ./gradlew :sim-harness:run --args="--format=T20 --matches=10 --report=none"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: "**/build/reports/tests/**"
+
+  # Android modules are excluded from the build unless an SDK is present, so
+  # they need their own job that installs one and opts them in explicitly.
+  android:
+    name: Android modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble
+        run: ./gradlew -Pcricket.includeAndroid=true :app:assembleDebug :data:testDebugUnitTest --stacktrace
