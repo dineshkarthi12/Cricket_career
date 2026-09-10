@@ -28,11 +28,21 @@ fun main(args: Array<String>) {
     println("  threads  ${parsed.threads}")
     println()
 
-    // Proves the seeding contract end to end: the harness can name a match and
-    // reproduce it exactly. Phase 2 replaces this with a simulated innings.
-    val sample = MatchRandom(parsed.seed)
-    println("  seed check: stream '${RngStreams.EXECUTION}' first draw = ${sample.stream(RngStreams.EXECUTION).nextLong()}")
-    println()
-    println("No match engine yet - Phase 2 wires the delivery pipeline in here.")
-    println("Calibration targets to be reported against are in docs/CALIBRATION.md.")
+    when (parsed.report) {
+        "players" -> PlayerReport.run(parsed)
+        else -> {
+            // Proves the seeding contract end to end: the harness can name a
+            // match and reproduce it exactly. Phase 2 replaces this with a
+            // simulated innings.
+            val sample = MatchRandom(parsed.seed)
+            println(
+                "  seed check: stream '${RngStreams.EXECUTION}' first draw = " +
+                    sample.stream(RngStreams.EXECUTION).nextLong(),
+            )
+            println()
+            println("No match engine yet - Phase 2 wires the delivery pipeline in here.")
+            println("Calibration targets to be reported against are in docs/CALIBRATION.md.")
+            println("Try --report=players to see the Phase 1 player generator.")
+        }
+    }
 }

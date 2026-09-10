@@ -230,8 +230,8 @@ tests, wait for approval.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 0 | Repo skeleton, Gradle multi-module, CI, determinism core, docs | **Done — awaiting review** |
-| 1 | Core data model, serialization, fictional player generator | Not started |
+| 0 | Repo skeleton, Gradle multi-module, CI, determinism core, docs | Done |
+| 1 | Core data model, serialization, fictional player generator | **Done — awaiting review** |
 | 2 | Match engine v1: full six-stage pipeline, T20 only, hit T20 calibration | Not started |
 | 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | Not started |
 | 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |

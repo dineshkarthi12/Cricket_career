@@ -37,6 +37,16 @@ class HarnessArgsTest {
     }
 
     @Test
+    fun `accepts the player-generation report`() {
+        assertEquals("players", HarnessArgs.parse(arrayOf("--report=players")).report)
+    }
+
+    @Test
+    fun `rejects an unknown report`() {
+        assertThrows(IllegalArgumentException::class.java) { HarnessArgs.parse(arrayOf("--report=vibes")) }
+    }
+
+    @Test
     fun `rejects an unknown option rather than ignoring it`() {
         // Silently dropping --mathces=5000 would waste an hour of someone's day.
         assertThrows(IllegalArgumentException::class.java) {

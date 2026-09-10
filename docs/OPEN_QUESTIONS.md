@@ -5,8 +5,8 @@ nothing is blocked while they are open — but several of them change the shape 
 the code, and the ones marked ⚑ are much cheaper to answer now than in Phase 5.
 
 **Q1, Q2 and Q3 were decided on 2026-09-10** (all three as proposed) and are
-kept below as a record of the reasoning. Q4–Q10 are still open and running on
-their defaults.
+kept below as a record of the reasoning. **Q10 was settled in code** by Phase 1.
+Q4–Q9 are still open and running on their defaults.
 
 ---
 
@@ -149,12 +149,25 @@ Kotlin, multi-module Gradle, Room, Compose, Hilt, kotlinx.serialization, min SDK
 
 ---
 
-## Q10. What is "average" for calibration?
+## ✅ Q10 — SETTLED IN CODE. What is "average" for calibration?
 
 Section 3's bands are for "average-quality players on an average pitch", which
 needs a concrete definition or the reports are not comparable across runs.
 
-**Default:** a full XI of attribute-50 players — batters, bowlers and a keeper
-in a standard balance — on a pitch at the midpoint of every parameter, in
-neutral weather. Defined once in the shared test fixtures so that the engine's
-tests, the harness and the calibration log all mean the same thing by it.
+**Settled by Phase 1:** `engine/src/testFixtures/.../Fixtures.kt` is now the
+single definition, and `FixturesTest` guards it — if someone quietly makes the
+fixture XI a bit better, every band in the calibration log stops meaning what it
+says, and nothing else in the build would notice.
+
+Concretely: an XI of players rated 50 at every attribute and 50 at every hidden
+attribute, in a standard balance (five specialist batters, a keeper, an
+all-rounder, three seamers, a spinner), on a pitch at the midpoint of every
+parameter on neutral clay soil, at a symmetric mid-sized ground at sea level.
+
+The fixture player is deliberately *flat* rather than role-shaped. Calibration
+needs a control, and a control with a role's shape would fold the role
+archetype's opinions into every measured band. Tests that want realistic players
+use the generator instead.
+
+Say if you want "average" to mean something else — it is one file, but changing
+it later invalidates every calibration figure recorded before the change.
