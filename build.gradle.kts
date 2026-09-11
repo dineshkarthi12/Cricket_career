@@ -1,9 +1,28 @@
 // Root build file. Deliberately thin: it declares plugins without applying them
 // so subprojects can opt in, and applies the handful of conventions that must
 // hold everywhere (JVM target, test engine, compiler strictness).
+//
+// Every plugin that ships in the *Kotlin Gradle Plugin artifact* has to be
+// declared here, even the ones only :app and :data use. `kotlin.jvm` and
+// `kotlin.android` are two ids on one artifact, so declaring only the first
+// puts that artifact on the root build classpath with no version attached, and
+// :app's later request for the second fails with
+//
+//     The request for this plugin could not be satisfied because the plugin is
+//     already on the classpath with an unknown version
+//
+// Declaring both here pins the version once and the conflict disappears.
+//
+// The Android plugins proper (AGP, KSP, Hilt) are NOT declared here. They are
+// separate artifacts that no JVM module ever loads, so there is nothing for
+// them to conflict with — and AGP comes from a host the JVM-only CI cannot
+// reach, so naming it here would take the whole build down on a machine with
+// no Android SDK.
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.compose.compiler) apply false
 }
 
 subprojects {
