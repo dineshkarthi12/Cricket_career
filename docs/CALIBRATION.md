@@ -293,3 +293,53 @@ for the harness being a first-class deliverable rather than a debug tool.
 **Still open:** play-and-miss sits near 19% of deliveries against a real 10-12%,
 and the hazard curve flattens rather than continuing to fall after twenty balls.
 Both are recorded in `SIMULATION_MODEL.md` §13.
+
+---
+
+## Career layer (Phase 5)
+
+The career layer has one calibration claim, and it is the one that decides
+whether any statistic in the game means anything:
+
+> **A player's figures in a reduced-form competition must be comparable with a
+> player's figures in the full ball-by-ball engine.**
+
+If a batter averages 38 in the user's competition and 47 in a reduced one, then
+every "leading run-scorer" table is fiction and the selection model reading
+those tables picks the wrong people.
+
+So `WorldTuning`'s coefficients are **measured from engine output, never
+chosen**. `WorldSimTest` re-runs both tiers side by side and requires agreement
+within four sampling standard errors.
+
+### Measured, 2026-09-11
+
+Sample: `Fixtures.averageXI` on `Pitch.AVERAGE`, `Weather.AVERAGE`, via
+`CalibrationRun`.
+
+| Format | Innings | Batting average | Strike rate | Balls per wicket |
+|---|---:|---:|---:|---:|
+| T20 | 1200 | 27.62 | 140.4 | 19.7 |
+| List A | 700 | 31.59 | 97.7 | 32.4 |
+| Four-day | 300 | 37.50 | 60.5 | 62.0 |
+
+These are the numbers `WorldTuning` is fitted to. **Re-measure whenever the
+match engine's calibration moves** — a divergence between the tiers is a bug,
+not a preference. `WorldSimTest` will fail first.
+
+### Career-shape bands
+
+Not sampling bands, but assertions about what a career should look like. All
+are enforced by tests rather than checked by eye.
+
+| Claim | Where |
+|---|---|
+| A 42-rated 17-year-old with potential 84 peaks near 78 at about 30 | `AgeingTest` |
+| No single year moves an attribute by more than about 3 points | `AgeingTest` |
+| Physical decline accelerates: age 36 loses more than twice what 28 loses | `AgeingTest` |
+| A fresh average 24-year-old seamer breaks down in 1.5–5.5% of matches | `InjuryModelTest` |
+| Over 60% of injuries are a niggle or minor; under 5% are severe | `InjuryModelTest` |
+| Eight focused training weeks move one area 1.5–4.0 points | `TrainingModelTest` |
+| The training projection and actual training agree within 1.5 points | `TrainingModelTest` |
+| A reduced T20 season has 1–12% ducks and 0.5–8% hundreds | `WorldSimTest` |
+| Regulars in a simulated season average between 3 and 120 | `SeasonTest` |

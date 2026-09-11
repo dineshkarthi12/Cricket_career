@@ -126,6 +126,13 @@ Practical rules:
 genuinely justified, put `determinism-ok: <reason>` on the same line — the
 point is that it has to be a decision rather than an accident.
 
+### Careers
+A career has its own seed, fanned out by `CareerRandom` into `career.*` streams
+on exactly the same terms. Match seeds are **derived** from the career seed —
+`deriveSeed(careerSeed, "match:$matchId")` — never drawn from a stream, so a
+match replays identically whether you reach it by simulating the career forward
+or open it on its own from a bug report.
+
 ### Parallelism
 Whole matches run concurrently, each with its own seed and its own
 `MatchRandom`. Generators are never shared across threads. The harness owns
@@ -235,7 +242,7 @@ tests, wait for approval.
 | 2 | Match engine v1: full six-stage pipeline, T20 only, hit T20 calibration | Done |
 | 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | **Partly done — DLS outstanding, see docs/CALIBRATION.md** |
 | 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |
-| 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | Not started |
+| 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
 | 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | Not started |
 | 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | Not started |
 | 8 | Performance, battery, APK size, accessibility, polish | Not started |
@@ -249,6 +256,7 @@ tests, wait for approval.
 | `docs/ARCHITECTURE.md` | Module graph, data flow, event model, save/replay, world-simulation tiering, performance budget |
 | `docs/SIMULATION_MODEL.md` | The match engine maths: coordinate system, all six stages, pitch model, pressure |
 | `docs/CALIBRATION.md` | Target bands, measurement method, and a log of every calibration run |
+| `docs/CAREER_MODEL.md` | The career layer: the clock, ageing, form, fatigue, injury, training, selection, contracts, the three world tiers |
 | `docs/OPEN_QUESTIONS.md` | Decisions that need the project owner, each with a working default |
 
 ### Decisions already taken

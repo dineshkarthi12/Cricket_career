@@ -159,11 +159,26 @@ data class FormTuning(
     val confidenceDecayPerDay: Double = 0.08,
 
     /**
-     * Sharpness lost per day without a match. At 0.014 a player is down to
-     * about 0.75 after two months out, which is the point at which a returning
-     * batter looks visibly short of cricket.
+     * Fraction of the gap to [sharpnessFloor] that sharpness closes per day
+     * without a match.
+     *
+     * Exponential rather than linear. A linear loss reaches the floor after
+     * about seventy days and sits there, which makes a four-month off-season
+     * and a two-year absence identical and every player start every season
+     * equally rusty. At 0.022 a player is at roughly 0.45 after two months and
+     * 0.29 after a normal off-season, so time out keeps costing something.
      */
-    val sharpnessLossPerDay: Double = 0.014,
+    val sharpnessDecayPerDay: Double = 0.022,
+
+    /**
+     * Sharpness a player decays toward, never past.
+     *
+     * Above zero because a professional who has not played for a year is still
+     * a professional: he is short of cricket, not incapable of it. Zero here
+     * would make a long injury career-ending by arithmetic rather than by
+     * anything that happened to him.
+     */
+    val sharpnessFloor: Double = 0.25,
 
     /** Sharpness regained per competitive innings or bowling spell. */
     val sharpnessGainPerAppearance: Double = 0.11,

@@ -88,9 +88,15 @@ object FormModel {
      * falls. Applied per day rather than per match so that a two-month injury
      * and a two-month suspension cost the same rustiness, which is correct.
      */
-    fun restDay(state: PlayerState, tuning: FormTuning): PlayerState = state.copy(
-        form = state.form * (1.0 - tuning.formDecayPerDay),
-        confidence = state.confidence * (1.0 - tuning.confidenceDecayPerDay),
-        sharpness = (state.sharpness - tuning.sharpnessLossPerDay).coerceIn(0.0, 1.0),
-    )
+    fun restDay(state: PlayerState, tuning: FormTuning): PlayerState {
+        val floor = tuning.sharpnessFloor
+        // Toward the floor, never to it: a professional who has not played for
+        // a year is short of cricket, not incapable of it.
+        val sharpness = floor + (state.sharpness - floor) * (1.0 - tuning.sharpnessDecayPerDay)
+        return state.copy(
+            form = state.form * (1.0 - tuning.formDecayPerDay),
+            confidence = state.confidence * (1.0 - tuning.confidenceDecayPerDay),
+            sharpness = sharpness.coerceIn(0.0, 1.0),
+        )
+    }
 }
