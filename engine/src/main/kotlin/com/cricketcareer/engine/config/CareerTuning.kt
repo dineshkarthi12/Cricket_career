@@ -16,6 +16,8 @@ data class CareerTuning(
     val injury: InjuryTuning = InjuryTuning(),
     val training: TrainingTuning = TrainingTuning(),
     val selection: SelectionTuning = SelectionTuning(),
+    val contracts: ContractTuning = ContractTuning(),
+    val world: WorldTuning = WorldTuning(),
 ) {
     companion object {
         /** The calibration reference. Every career test measures against this. */
@@ -395,4 +397,167 @@ data class SelectionTuning(
 
     /** How far a carried niggle is marked down. A player is pickable with one; he is not free. */
     val nigglePenalty: Double = 0.35,
+)
+
+/**
+ * What a cricketer is worth, and what he will sign.
+ *
+ * Money is in **units**, not rupees or pounds: the seed database attaches a
+ * currency and a scale to a country, so the engine can compare a state contract
+ * with a franchise deal without knowing what either is denominated in. Putting
+ * a currency in here would bake one country's economy into the physics.
+ */
+data class ContractTuning(
+    /**
+     * Units per season a player of standard 1.0 commands at the top of the
+     * ladder. Everything else is a fraction of this, so moving it rescales the
+     * whole economy without changing any relative price.
+     */
+    val topOfMarketPerSeason: Double = 1000.0,
+
+    /**
+     * Exponent on standard in the valuation. Above one because the market for
+     * cricketers is steeply convex: the best player in a competition is worth
+     * far more than twice the median, and a linear market makes every squad
+     * identical.
+     */
+    val standardExponent: Double = 2.6,
+
+    /** How far current form moves a price, at form 1.0. Short-term and real. */
+    val formPremium: Double = 0.22,
+
+    /**
+     * How far reputation moves a price. Bigger than form, because a famous
+     * player sells shirts whatever he averaged last month, and franchises pay
+     * for that.
+     */
+    val reputationPremium: Double = 0.40,
+
+    /** Age at which a player commands his peak price. Earlier than his peak ability: clubs buy futures. */
+    val peakMarketAge: Int = 27,
+
+    /** Fraction of value lost per year either side of [peakMarketAge]. */
+    val valueFallPerYearFromPeak: Double = 0.055,
+
+    /**
+     * How far a guaranteed place in the XI is worth to a player, as a fraction
+     * of salary. Almost a doubling, because a career is made of matches and a
+     * bench year at a big club costs sharpness, then form, then the next
+     * selection — the model has to price all three or "sign for the rich club
+     * and never play" becomes the optimal career.
+     */
+    val guaranteedPlaceWorth: Double = 0.90,
+
+    /**
+     * How far playing at a higher standard is worth, per unit of
+     * [LadderLevel.standard], as a fraction of salary.
+     *
+     * The ladder spans 0.22 at college to 0.92 at international, so at 3.2 the
+     * whole climb is worth about a 220% pay gap — a player will take a large
+     * pay cut to go from district cricket to a state side, and a small one to
+     * go from a state side to an international contract. Set this low and every
+     * cricketer signs for whoever pays most and the ladder stops meaning
+     * anything; set it very high and money never matters at all.
+     */
+    val standardWorth: Double = 3.2,
+
+    /** Noise on a player's judgement of an offer, as a fraction of its value. */
+    val decisionSigma: Double = 0.09,
+
+    /**
+     * Fraction above a team's valuation that it will still bid at auction.
+     * Above zero because an auction is a room, not a spreadsheet, and the last
+     * bid is always slightly mad.
+     */
+    val auctionOverbid: Double = 0.18,
+
+    /** Smallest auction increment, as a fraction of the lot's base price. */
+    val auctionIncrement: Double = 0.05,
+)
+
+/**
+ * The reduced-form world model.
+ *
+ * Tier 1 is the full ball-by-ball engine. Tiers 2 and 3 exist because
+ * simulating every ball of every match in every country would cost minutes per
+ * season on a phone, and nobody would ever look at most of it.
+ *
+ * **These coefficients are fitted from tier-1 output, never hand-authored.**
+ * `sim-harness` runs the fit and writes them here; a divergence between tiers
+ * is a calibration bug, not a design choice. That is the only way a player's
+ * statistics in another country stay comparable with the user's own — which is
+ * the whole point of simulating the rest of the world at all.
+ *
+ * See docs/CAREER_MODEL.md §9.
+ */
+data class WorldTuning(
+    /**
+     * Runs an average batter (standard 0.5) scores per innings against an
+     * average attack, per format.
+     *
+     * MEASURED, not chosen. Taken from 1200 T20, 700 List A and 300 four-day
+     * innings of Fixtures.averageXI on Pitch.AVERAGE, which returned batting
+     * averages of 27.62, 31.59 and 37.50. These means are those averages times
+     * the corresponding dismissal rate below, so that
+     * `WorldSim.average` reproduces the engine's own number.
+     * Re-measure with WorldSimAgreementTest whenever the engine's calibration
+     * moves; a divergence here is a bug, not a preference.
+     */
+    val meanRunsT20: Double = 21.5,
+    val meanRunsListA: Double = 24.6,
+    val meanRunsMultiDay: Double = 35.3,
+
+    /**
+     * Probability that a batter who batted was dismissed, per format.
+     *
+     * Not one minus a not-out rate plucked from the air: an innings has eleven
+     * batters and at most ten wickets, so somebody is always not out, and over
+     * five days almost everybody else is out.
+     */
+    val dismissalRateLimitedOvers: Double = 0.78,
+    val dismissalRateMultiDay: Double = 0.94,
+
+    /**
+     * Balls per run for an average batter, per format — the inverse of a
+     * strike rate. Measured alongside the means above: 140, 98 and 61.
+     */
+    val ballsPerRunT20: Double = 0.712,
+    val ballsPerRunListA: Double = 1.024,
+    val ballsPerRunMultiDay: Double = 1.652,
+
+    /**
+     * Ratio of the standard deviation of an innings to its mean.
+     *
+     * Just above 1 because cricket scores are roughly geometric: a batter's
+     * most likely score is low, his mean is well above his median, and the
+     * distribution has a long right tail. Anything close to a normal
+     * distribution here would produce a world with no ducks and no hundreds.
+     */
+    val runsDispersion: Double = 1.15,
+
+    /**
+     * How far a one-unit difference in standard moves a batter's mean, as a
+     * multiplier. At 2.8, a 0.8-standard batter averages roughly two and a
+     * half times a 0.2-standard one, which is about the spread between an
+     * international and a club cricketer.
+     */
+    val standardToRuns: Double = 2.8,
+
+    /** The same for a bowler's strike rate, inverted: better bowlers strike sooner. */
+    val standardToStrikeRate: Double = 2.2,
+
+    /**
+     * Balls per wicket for an average bowler against average batting, per
+     * format. Measured from the same samples as the means above.
+     */
+    val meanStrikeRateT20: Double = 19.7,
+    val meanStrikeRateListA: Double = 32.4,
+    val meanStrikeRateMultiDay: Double = 62.0,
+
+    /**
+     * How far form moves a reduced-form innings, as a fraction of the mean at
+     * form 1.0. Matched to the effect form has inside the real engine, so a
+     * tier-2 player in a purple patch and a tier-1 player in one look alike.
+     */
+    val formEffect: Double = 0.18,
 )
