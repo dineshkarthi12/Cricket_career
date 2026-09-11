@@ -20,10 +20,14 @@ data class NamePool(val given: List<String>, val family: List<String>) {
  * and 40 surnames yields 1,600 combinations — enough that a career does not
  * feel repetitive, and small enough that someone can edit it in a text file.
  *
- * All generated players are fictional. Given names and surnames are ordinary
- * ones from the region; a random pairing could in principle coincide with a
- * real person, which is inherent to any name generator and is why the seed
- * database is editable.
+ * All generated players are fictional, and the pools are chosen with that in
+ * mind: surnames and given names that read strongly as a current international
+ * cricketer are deliberately left out, because a generator drawing the two
+ * halves independently *will* eventually pair them. The first prototype run of
+ * this pool produced a real Test all-rounder's name on the opening ball.
+ *
+ * A coincidence is still possible — that is inherent to any name generator —
+ * which is one more reason the seed database is editable.
  */
 @Serializable
 data class NamePools(
@@ -44,15 +48,15 @@ data class NamePools(
         val FALLBACK: NamePools = NamePools(
             default = NamePool(
                 given = listOf(
-                    "Aarav", "Rohan", "Vikram", "Nikhil", "Arjun", "Kabir", "Rishabh", "Sanjay",
+                    "Aarav", "Rohan", "Vikram", "Nikhil", "Arjun", "Kabir", "Ritesh", "Sanjay",
                     "Dhruv", "Manav", "Aditya", "Karan", "Varun", "Siddharth", "Tarun", "Pranav",
-                    "Yash", "Naveen", "Harsh", "Anirudh", "Devansh", "Kunal", "Rahul", "Girish",
-                    "Imran", "Farhan", "Zubair", "Aslam", "Joseph", "Denzil", "Ashwin", "Lokesh",
+                    "Yash", "Naveen", "Harsh", "Anirudh", "Devansh", "Kunal", "Rahil", "Girish",
+                    "Imran", "Farhan", "Zubair", "Aslam", "Joseph", "Denzil", "Ashwath", "Lokesh",
                 ),
                 family = listOf(
-                    "Kulkarni", "Menon", "Reddy", "Iyer", "Chauhan", "Bhatt", "Naik", "Deshmukh",
+                    "Kulkarni", "Menon", "Redkar", "Iyengar", "Chavan", "Bhatt", "Naik", "Deshmukh",
                     "Rathore", "Salvi", "Pillai", "Ghosh", "Mahajan", "Tiwari", "Sekhon", "Vaidya",
-                    "Barman", "Chandran", "Dixit", "Fernandes", "Grewal", "Hegde", "Jadeja", "Kamble",
+                    "Barman", "Chandran", "Dixit", "Fernandes", "Grewal", "Hegde", "Jhaveri", "Kadam",
                     "Lobo", "Mirza", "Nandy", "Oberoi", "Purohit", "Quereshi", "Rane", "Sarkar",
                 ),
             ),

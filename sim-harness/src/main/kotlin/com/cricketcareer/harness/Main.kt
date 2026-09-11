@@ -32,6 +32,7 @@ fun main(args: Array<String>) {
         "players" -> PlayerReport.run(parsed)
         "calibration" -> CalibrationReport.run(parsed)
         "scorecard" -> ScorecardReport.run(parsed)
+        "export" -> InningsExport.run(parsed, System.getenv("CRICKET_EXPORT") ?: "innings.json")
         else -> {
             // Proves the seeding contract end to end: the harness can name a
             // match and reproduce it exactly. Phase 2 replaces this with a
