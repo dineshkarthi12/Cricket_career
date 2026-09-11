@@ -13,16 +13,18 @@
 //
 // Declaring both here pins the version once and the conflict disappears.
 //
-// The Android plugins proper (AGP, KSP, Hilt) are NOT declared here. They are
-// separate artifacts that no JVM module ever loads, so there is nothing for
-// them to conflict with — and AGP comes from a host the JVM-only CI cannot
-// reach, so naming it here would take the whole build down on a machine with
-// no Android SDK.
+// All plugins used across subprojects (Kotlin, AGP, KSP, Hilt) are declared
+// here with `apply false` to ensure version pinning and unified classloader
+// resolutions across modules.
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.compose.compiler) apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.hilt) apply false
 }
 
 subprojects {
