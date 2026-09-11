@@ -111,14 +111,7 @@ object InningsExport {
             card.batting.forEachIndexed { i, b ->
                 if (i > 0) append(",")
                 append("{\"name\":").append(quote(names[b.player] ?: ""))
-                append(",\"how\":").append(
-                    quote(
-                        b.dismissal?.let { d ->
-                            d.mode.displayName + (d.fielder?.let { " " + (names[it] ?: "") } ?: "") +
-                                (d.bowler?.let { " b " + (names[it] ?: "") } ?: "")
-                        } ?: "not out",
-                    ),
-                )
+                append(",\"how\":").append(quote(b.dismissal?.let { howOut(it, names) } ?: "not out"))
                 append(",\"r\":").append(b.runs)
                 append(",\"b\":").append(b.balls)
                 append(",\"f\":").append(b.fours)
@@ -150,6 +143,31 @@ object InningsExport {
                 append(quote(f.display))
             }
             append("]\n")
+        }
+    }
+
+    /**
+     * A dismissal in scorebook notation.
+     *
+     * Each mode has its own shape and they are not interchangeable: "b Kadam",
+     * "lbw b Kadam", "c Rane b Kadam", "st Rane b Kadam", "run out (Rane)".
+     * Concatenating the mode with a bowler suffix produced "b b Kadam".
+     */
+    private fun howOut(
+        dismissal: com.cricketcareer.engine.match.state.Dismissal,
+        names: Map<PlayerId, String>,
+    ): String {
+        val bowler = dismissal.bowler?.let { names[it] ?: "" }
+        val fielder = dismissal.fielder?.let { names[it] ?: "" }
+        return when (dismissal.mode) {
+            com.cricketcareer.engine.match.state.DismissalMode.BOWLED -> "b $bowler"
+            com.cricketcareer.engine.match.state.DismissalMode.LBW -> "lbw b $bowler"
+            com.cricketcareer.engine.match.state.DismissalMode.CAUGHT -> "c $fielder b $bowler"
+            com.cricketcareer.engine.match.state.DismissalMode.STUMPED -> "st $fielder b $bowler"
+            com.cricketcareer.engine.match.state.DismissalMode.HIT_WICKET -> "hit wicket b $bowler"
+            com.cricketcareer.engine.match.state.DismissalMode.RUN_OUT ->
+                if (fielder != null) "run out ($fielder)" else "run out"
+            else -> dismissal.mode.displayName
         }
     }
 
