@@ -87,7 +87,11 @@ object Stage5Contact {
         val timingSigma = tuning.timingSigmaSeconds *
             (tuning.timingSkillWorst - (tuning.timingSkillWorst - tuning.timingSkillBest) * context.strikerSkill(Attribute.TIMING)) *
             (1.0 + tuning.timingPressureWeight * context.pressure) *
-            (1.0 + 0.55 * exp(-context.strikerBallsFaced / context.tuning.perception.settleScaleBalls))
+            (
+                1.0 +
+                    0.40 * exp(-context.strikerBallsFaced / context.tuning.perception.settleScaleBalls) +
+                    0.22 * exp(-context.strikerBallsFaced / context.tuning.perception.deepSettleScaleBalls)
+                )
         val timingError = rng.nextGaussian() * timingSigma
         val metresPerSecond = ball.paceKph / 3.6
         val timingLengthOffset = timingError * metresPerSecond

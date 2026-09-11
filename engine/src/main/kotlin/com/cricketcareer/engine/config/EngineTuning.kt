@@ -25,6 +25,8 @@ data class EngineTuning(
     val contact: ContactTuning = ContactTuning(),
     val outcome: OutcomeTuning = OutcomeTuning(),
     val pressure: PressureTuning = PressureTuning(),
+    val pitch: PitchTuning = PitchTuning(),
+    val formatIntent: FormatIntentTuning = FormatIntentTuning(),
     val knobs: CalibrationKnobs = CalibrationKnobs(),
 ) {
     companion object {
@@ -45,7 +47,7 @@ data class CalibrationKnobs(
     val executionSpreadScale: Double = 1.0,
 
     /** Scales how badly the batter mis-reads the ball. The primary wicket-rate control. */
-    val perceptionErrorScale: Double = 1.0,
+    val perceptionErrorScale: Double = 0.96,
 
     /** Scales every shot's tolerance ellipsoid. Up means better contact: more boundaries, fewer edges. */
     val contactToleranceScale: Double = 1.0,
@@ -60,7 +62,7 @@ data class CalibrationKnobs(
     val lbwStrictnessScale: Double = 1.12,
 
     /** Scales exit speed off the bat. Moves boundary % without touching the dismissal mix much. */
-    val batPowerScale: Double = 1.158,
+    val batPowerScale: Double = 1.20,
 )
 
 /** Stage 1 — what the bowler is trying to bowl. */
@@ -112,7 +114,7 @@ data class ExecutionTuning(
      * their line, and that asymmetry is what makes length the more valuable
      * skill. Also the emergent driver of the wide rate (target 3-5% white ball).
      */
-    val lineSigmaBase: Double = 0.225,
+    val lineSigmaBase: Double = 0.255,
 
     /** Multiplier at accuracy 0. */
     val accuracyWorst: Double = 1.55,
@@ -237,7 +239,7 @@ data class PerceptionTuning(
      * format at once, which is why it answers to the balls-per-wicket bands
      * (T20 target 16-19) rather than to any single one.
      */
-    val baseSigmaMetres: Double = 0.32,
+    val baseSigmaMetres: Double = 0.295,
 
     /**
      * Line estimate as a fraction of the length estimate's error.
@@ -263,8 +265,24 @@ data class PerceptionTuning(
      * and therefore the innings-score distribution Section 3 demands — without
      * ever sampling from a score distribution.
      */
-    val settleWeight: Double = 0.75,
-    val settleScaleBalls: Double = 8.0,
+    val settleWeight: Double = 0.45,
+    val settleScaleBalls: Double = 6.0,
+
+    /**
+     * The second, slower half of settling: getting *properly* in.
+     *
+     * Playing yourself in is two processes, not one. Sighting the ball takes a
+     * handful of deliveries; being genuinely set — knowing the pace of the
+     * pitch, the bowlers' plans, where the gaps are — takes the better part of
+     * an hour.
+     *
+     * With only the fast term, a batter who had faced a hundred balls was no
+     * safer than one who had faced twenty. That flattened the survival hazard
+     * after the first twenty deliveries and, worse, made a fifty-over innings
+     * no safer than a Twenty20 one — the formats collapsed into each other.
+     */
+    val deepSettleWeight: Double = 0.30,
+    val deepSettleScaleBalls: Double = 50.0,
 
     /** Pace discomfort: comfort speed at pacePlay 0 and 100, and how fast it bites above that. */
     val paceComfortFloorKph: Double = 120.0,
@@ -332,8 +350,17 @@ data class ContactTuning(
     val techniqueWeight: Double = 0.55,
     val footworkWeight: Double = 0.40,
 
-    /** How far past the tolerance the ball must be before contact is missed entirely. */
-    val missThreshold: Double = 1.86,
+    /**
+     * How far past the shot's tolerance the ball has to be before the bat
+     * misses it altogether.
+     *
+     * Play-and-miss is only about 10-12% of deliveries in real cricket. Setting
+     * this low made it 19%, and since a beaten ball is a forced dot, the extra
+     * play-and-misses alone put the dot rate eight points over its band. Raising
+     * it turns those near-misses into the thin edges they should have been,
+     * which cuts dots and finds the cordon more.
+     */
+    val missThreshold: Double = 1.88,
 
     /**
      * How far the bat can actually be put, laterally, measured at the stumps.
@@ -367,6 +394,15 @@ data class OutcomeTuning(
 
     /** Fraction of the incoming pace redirected on a middled shot. */
     val incomingPaceTransfer: Double = 0.28,
+
+    /**
+     * How much of that rebound survives a completely dead bat.
+     *
+     * Soft hands are a skill: a batter dropping the ball at his feet is
+     * deliberately killing its pace. At 1.0 every defensive push rebounds like a
+     * drive and rolls into the covers for a single.
+     */
+    val deadBatAbsorption: Double = 0.22,
 
     /** Spread of the exit azimuth, in degrees, at perfect and at zero contact quality. */
     val azimuthSpreadBest: Double = 9.0,
@@ -430,7 +466,28 @@ data class OutcomeTuning(
     /** Running: batter speed range in m/s, and the cost of turning for a second run. */
     val runSpeedSlowest: Double = 6.6,
     val runSpeedFastest: Double = 8.6,
-    val turnCostSeconds: Double = 0.55,
+    val turnCostSeconds: Double = 1.00,
+
+    /**
+     * Time for a fielder who has cut the ball off inside the ring to gather it
+     * and get rid, moving onto the ball rather than waiting for it.
+     *
+     * Much quicker than a standing pick-up, and it is what makes a ring fielder
+     * worth having: he turns an arithmetically available single into a dot.
+     */
+    val attackingPickUpSeconds: Double = 0.40,
+
+    /**
+     * How close to the ball's line a fielder has to be to be *attacking* it
+     * rather than chasing it.
+     *
+     * Inside this he is moving onto the ball and the single is off; outside it
+     * he is running across and the batters go. This is the difference between a
+     * push to cover and a push into the gap beside him, and it is why a denser
+     * ring — six in a fifty-over middle session against five in a Twenty20 —
+     * produces more dot balls without anyone changing their intent.
+     */
+    val attackingReachMetres: Double = 6.5,
 
     /** Throw speed range, in m/s, from throwArm. */
     val throwSpeedSlowest: Double = 18.0,
@@ -443,7 +500,7 @@ data class OutcomeTuning(
      * Both deliberately small: run outs are only 4-6% of dismissals, and a
      * generous risk margin here floods the game with them.
      */
-    val directHitBase: Double = 0.17,
+    val directHitBase: Double = 0.045,
     val riskyRunMarginSeconds: Double = 0.12,
 
     /**

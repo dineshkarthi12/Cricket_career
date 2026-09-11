@@ -54,9 +54,14 @@ enum class Shot(
     // and batters left a third of all deliveries in a Twenty20.
     LEAVE("leave", 7.0, 0.58, 0.80, 0.80, 0.0, 0.0, 0.0, FootMovement.NONE, 0.0, Attribute.PATIENCE, makesContact = false),
 
-    DEFEND_FRONT("forward defensive", 5.0, 0.10, 0.45, 1.15, 10.0, 1.0, 0.12, FootMovement.FRONT, 0.02, Attribute.TECHNIQUE),
-    DEFEND_BACK("back-foot defensive", 9.2, 0.10, 0.80, 1.12, 20.0, 1.0, 0.12, FootMovement.BACK, 0.03, Attribute.TECHNIQUE),
-    BLOCK_AND_RUN("push into the off side", 6.5, 0.25, 0.55, 1.02, 75.0, 2.0, 0.22, FootMovement.FRONT, 0.10, Attribute.STRIKE_ROTATION),
+    // Defence is *safe*, and that has to show in the tolerance. The whole
+    // reason a Test batter survives sixty balls where a Twenty20 batter survives
+    // eighteen is shot selection, so if defending is barely safer than slogging
+    // the formats collapse into each other - which is exactly what happened
+    // when these sat at 1.15.
+    DEFEND_FRONT("forward defensive", 5.0, 0.10, 0.45, 1.50, 10.0, 1.0, 0.12, FootMovement.FRONT, 0.02, Attribute.TECHNIQUE),
+    DEFEND_BACK("back-foot defensive", 9.2, 0.10, 0.80, 1.46, 20.0, 1.0, 0.12, FootMovement.BACK, 0.03, Attribute.TECHNIQUE),
+    BLOCK_AND_RUN("push into the off side", 6.5, 0.25, 0.55, 1.22, 75.0, 2.0, 0.22, FootMovement.FRONT, 0.10, Attribute.STRIKE_ROTATION),
 
     DRIVE_STRAIGHT("straight drive", 3.0, 0.05, 0.35, 0.92, 2.0, 5.0, 0.88, FootMovement.FRONT, 0.30, Attribute.FRONTFOOT_PLAY),
     DRIVE_COVER("cover drive", 3.2, 0.36, 0.40, 0.88, 48.0, 4.0, 0.86, FootMovement.FRONT, 0.34, Attribute.FRONTFOOT_PLAY),

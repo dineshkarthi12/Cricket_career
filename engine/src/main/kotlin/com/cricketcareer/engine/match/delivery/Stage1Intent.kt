@@ -193,13 +193,18 @@ object Stage1Intent {
         // Left-handers reverse the angle, but the frame is already mirrored, so
         // the same preferences hold: attack the stumps and the channel outside
         // off, and never stray down the leg side.
+        // Attack the stumps. The channel outside off is a probing line, not a
+        // wicket-taking one on its own: a ball that beats the bat out there
+        // beats everything, while one that beats it on off stump hits it.
+        // Weighting the channel over the stumps left the engine with a
+        // believable play-and-miss rate and almost no bowled or lbw.
         var utility = when (band) {
             LineBand.DOWN_LEG -> -4.0
-            LineBand.LEG_STUMP -> -1.2
-            LineBand.MIDDLE -> 0.9
-            LineBand.OFF_STUMP -> 1.4
-            LineBand.FOURTH_STUMP -> 1.2 + 0.6 * context.bowlerSkill(Attribute.SEAM_MOVEMENT)
-            LineBand.CHANNEL -> 0.3 + 0.9 * context.bowlerSkill(Attribute.SWING) * context.ball.shine
+            LineBand.LEG_STUMP -> -0.9
+            LineBand.MIDDLE -> 1.5
+            LineBand.OFF_STUMP -> 1.6
+            LineBand.FOURTH_STUMP -> 1.0 + 0.6 * context.bowlerSkill(Attribute.SEAM_MOVEMENT)
+            LineBand.CHANNEL -> 0.0 + 0.9 * context.bowlerSkill(Attribute.SWING) * context.ball.shine
             LineBand.WIDE_OUTSIDE_OFF -> -2.2
         }
         // The wide yorker: a death-overs tactic in white-ball cricket, aimed

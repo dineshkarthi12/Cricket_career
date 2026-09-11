@@ -33,6 +33,20 @@ data class FieldingResolution(
     val caught: Boolean,
     val dropped: Boolean,
     val misfielded: Boolean,
+    /**
+     * Whether a fielder cut the ball off on its line, as opposed to chasing it
+     * down after it had stopped. An intercepted ball is one he is moving onto,
+     * which is a different proposition for the batters.
+     */
+    val intercepted: Boolean = false,
+    /**
+     * How far the gathering fielder was from the ball's line, in metres.
+     *
+     * This is what separates a push straight to cover from a push into the gap
+     * beside him. The first is a dot because he is moving onto the ball with
+     * his arm cocked; the second is a single because he is chasing it.
+     */
+    val fielderLateralMetres: Double = 0.0,
     /** Distance from the batter at which the ball was gathered. */
     val fieldedAtMetres: Double,
     val reachedBoundary: Boolean,
@@ -393,7 +407,14 @@ object Stage6Outcome {
         val timing = context.strikerSkill(Attribute.TIMING)
         val speedFromBat = tuning.batSpeedContribution * shot.powerFactor *
             (0.45 + 0.75 * power) * (0.7 + 0.45 * timing)
-        val speedFromBall = tuning.incomingPaceTransfer * ball.paceKph / 3.6
+        // How much of the ball's own pace comes back off the bat depends on how
+        // firmly it was struck. A dead bat absorbs it; a drive redirects it.
+        // Giving every stroke the full rebound sent a forward defensive
+        // twenty-four metres, which turned defence into a single-taking shot and
+        // left Test cricket scoring at six an over.
+        val firmness = tuning.deadBatAbsorption +
+            (1.0 - tuning.deadBatAbsorption) * shot.powerFactor.coerceAtMost(1.0)
+        val speedFromBall = tuning.incomingPaceTransfer * firmness * ball.paceKph / 3.6
         val qualityFactor = tuning.mistimedSpeedFloor + (1.0 - tuning.mistimedSpeedFloor) * quality
         val exitSpeed = ((speedFromBat + speedFromBall) * qualityFactor * context.tuning.knobs.batPowerScale)
             .coerceAtLeast(1.0)
@@ -560,12 +581,19 @@ object Stage6Outcome {
             )),
         )
 
+        val chaserLateral = chaser?.let { fielder ->
+            val separation = FieldGaps.angularSeparation(trajectory.azimuthDegrees, fielder.position.azimuthDegrees)
+            fielder.position.distanceMetres * sin(separation * PI / 180.0)
+        } ?: Double.MAX_VALUE
+
         return FieldingResolution(
             nearestFielder = chaser,
             wasChance = false,
             caught = false,
             dropped = false,
             misfielded = misfield,
+            intercepted = intercepted,
+            fielderLateralMetres = chaserLateral,
             fieldedAtMetres = stop,
             reachedBoundary = reachedRope,
             clearedBoundary = false,
@@ -710,12 +738,28 @@ object Stage6Outcome {
                 (0.85 + 0.3 * context.fielderSkill(fielder.player, Attribute.SPEED))
             (gap / speed - ballTime).coerceAtLeast(0.0)
         } ?: 2.0
-        val gather = tuning.fielderReactionSeconds + if (fielding.misfielded) 1.10 else 0.30
+        // Any ball that comes to rest inside the ring is being attacked: the
+        // infielder has been running at it since it left the bat and gathers and
+        // throws in one motion. The batters can see that, and a forward
+        // defensive that trickles fifteen metres into the covers is a dot ball,
+        // not the arithmetically available single the model used to give them.
+        // Restricting this to balls he cut off on their line missed exactly the
+        // deliveries it matters most for.
+        val attacking = fielding.nearestFielder != null &&
+            fielding.fieldedAtMetres < Geometry.INNER_RING_M &&
+            fielding.fielderLateralMetres < tuning.attackingReachMetres
+        val gather = when {
+            fielding.misfielded -> tuning.fielderReactionSeconds + 1.10
+            attacking -> tuning.attackingPickUpSeconds
+            else -> tuning.fielderReactionSeconds + 0.30
+        }
         val throwSpeed = fielding.nearestFielder?.let { fielder ->
             tuning.throwSpeedSlowest + (tuning.throwSpeedFastest - tuning.throwSpeedSlowest) *
                 context.fielderSkill(fielder.player, Attribute.THROW_ARM)
         } ?: tuning.throwSpeedSlowest
-        val throwTime = fielding.fieldedAtMetres / throwSpeed
+        // Running in at the ball closes some of the throwing distance too.
+        val throwDistance = if (attacking) fielding.fieldedAtMetres * 0.88 else fielding.fieldedAtMetres
+        val throwTime = throwDistance / throwSpeed
         val availableTime = ballTime + chaseTime + gather + throwTime
 
         val speed = tuning.runSpeedSlowest +
@@ -738,10 +782,19 @@ object Stage6Outcome {
                 // arithmetically a single and is refused nearly every time; a
                 // slightly tight one is usually taken. Treating both the same
                 // produced a game with too few dots and too few run outs at once.
+                // Nobody scampers a tight one at a fielder already moving onto
+                // the ball with his arm cocked.
+                val attackedPenalty = if (attacking) 0.55 else 0.0
+                val formatBonus = context.tuning.formatIntent.forFormat(context.format).singleAppetiteBonus
                 val appetite = if (margin > 0.0) {
-                    tuning.tightSingleAppetite + 0.35 * judgement + 0.20 * context.battingIntent
+                    tuning.tightSingleAppetite + 0.35 * judgement +
+                        0.20 * context.battingIntent + formatBonus - attackedPenalty
                 } else {
-                    0.78 + 0.30 * judgement + 0.15 * context.battingIntent
+                    // A run that is already in the red is one a batter turns
+                    // down most of the time. At 0.78 they went anyway and run
+                    // outs reached nineteen per cent of all dismissals.
+                    0.34 + 0.30 * judgement + 0.15 * context.battingIntent +
+                        formatBonus - attackedPenalty
                 }
                 if (!rng.chance(appetite.coerceIn(0.03, 0.97))) break
             }

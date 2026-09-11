@@ -39,11 +39,16 @@ object Stage4Read {
         val technique = context.strikerSkill(Attribute.TECHNIQUE)
         val concentration = context.strikerSkill(Attribute.CONCENTRATION)
 
-        // Settling. At 0 balls faced this is 1.75x; by 15 balls 1.12x. One
-        // decaying term produces the brief's "vulnerable in his first 10-15
-        // balls", a falling dismissal hazard, and therefore the innings-score
-        // distribution Section 3 asks for.
-        val settle = 1.0 + tuning.settleWeight * exp(-context.strikerBallsFaced / tuning.settleScaleBalls)
+        // Settling, in two stages: sighting the ball over a handful of
+        // deliveries, and getting properly in over the following hour. At nought
+        // balls faced this is 1.75x, at fifteen 1.33x, at forty 1.14x, and it is
+        // still improving at a hundred. That is what produces the brief's
+        // "vulnerable in his first 10-15 balls", a hazard that keeps falling
+        // through a long innings, and the gap between a Twenty20 average and a
+        // first-class one.
+        val settle = 1.0 +
+            tuning.settleWeight * exp(-context.strikerBallsFaced / tuning.settleScaleBalls) +
+            tuning.deepSettleWeight * exp(-context.strikerBallsFaced / tuning.deepSettleScaleBalls)
 
         val comfort = tuning.paceComfortFloorKph +
             tuning.paceComfortRangeKph * context.strikerSkill(Attribute.PACE_PLAY)
@@ -119,7 +124,8 @@ object Stage4Read {
         val tuning = context.tuning.perception
         val situation = context.situation
 
-        val base = tuning.baseRisk +
+        val intent = context.tuning.formatIntent.forFormat(context.format)
+        val base = intent.baseRisk +
             tuning.aggressionRiskWeight * context.strikerSkill(Attribute.AGGRESSION) +
             context.tuning.knobs.aggressionBias
         val required = situation.requiredRate?.let { rate ->
@@ -127,15 +133,14 @@ object Stage4Read {
         } ?: run {
             // Not chasing: the phase of the innings decides how hard to go.
             val total = situation.totalOvers ?: return@run 0.0
-            // Phase of the innings. A Twenty20 attacks from ball one and
-            // accelerates; a fifty-over innings has a long middle where nobody
-            // needs to take a risk.
+            // Phase of the innings, per format. A Twenty20 attacks from ball
+            // one and accelerates; a fifty-over innings has a long flat middle;
+            // a Test innings barely changes at all.
             val fraction = situation.over.toDouble() / total
-            val shortFormat = total <= 20
             when {
-                fraction < 0.30 -> if (shortFormat) 0.15 else -0.05
-                fraction < 0.75 -> if (shortFormat) 0.35 else 0.10
-                else -> if (shortFormat) 0.80 else 0.55
+                fraction < 0.30 -> intent.earlyPhaseRisk
+                fraction < 0.75 -> intent.middlePhaseRisk
+                else -> intent.latePhaseRisk
             }
         }
 
@@ -175,10 +180,11 @@ object Stage4Read {
             // what patience is worth here, minus the cost of using up a ball.
             // Scoring it on its own scale made a leave beat a defensive shot to
             // almost any delivery, and batters left a third of a Twenty20.
-            val formatPatience = if (context.format.isMultiDay) 1.0 else 0.20
+            val intent = context.tuning.formatIntent.forFormat(context.format)
+            val formatPatience = intent.leavePatience
             // Leaving costs a delivery. In a format with only 120 of them that
             // is a real price, and it is why nobody leaves in a Twenty20.
-            val ballCost = if (context.format.isMultiDay) 1.1 else 2.6
+            val ballCost = intent.leaveBallCost
             return fit * 1.5 - ballCost +
                 formatPatience * (
                     1.9 * (1.0 - risk) +
@@ -196,10 +202,14 @@ object Stage4Read {
         // The reward is what the shot might SCORE, which is its power, not its
         // danger. Pricing the upside by `risk` made a wild shot attractive for
         // being wild and left a Twenty20 batter blocking and running singles.
+        // The caution charge is floored at zero. Letting `1 - risk` go negative
+        // when a batter is desperate turned the charge into a second bonus, so
+        // the most reckless states in the game rewarded reckless shots twice.
+        val caution = (1.0 - risk).coerceAtLeast(0.0)
         return fit * 1.5 +
             1.25 * skill +
             4.2 * risk * shot.powerFactor * reward -
-            2.2 * (1.0 - risk) * shot.risk -
+            2.2 * caution * shot.risk -
             0.55 * (1.0 - shot.toleranceScale)
     }
 

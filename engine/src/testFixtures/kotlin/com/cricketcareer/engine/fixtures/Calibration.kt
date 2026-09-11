@@ -201,6 +201,16 @@ class CalibrationStats {
 /** Runs innings of average players on an average pitch and accumulates the stats. */
 object CalibrationRun {
 
+    /**
+     * Multi-day innings are bounded by the match clock, not by an over limit.
+     *
+     * A Test innings that ran until all out with no ceiling would happily go
+     * past 200 overs when nobody could get anybody out, which is not a Test
+     * innings — it is a bug in the shape of one. 130 overs is a long first
+     * innings and a sane cap for a single-innings calibration sample.
+     */
+    private const val MULTI_DAY_INNINGS_OVER_CAP = 130
+
     fun run(
         format: MatchFormat,
         innings: Int,
@@ -208,8 +218,20 @@ object CalibrationRun {
         tuning: EngineTuning = EngineTuning.DEFAULT,
         pitch: Pitch = Fixtures.AVERAGE_PITCH,
         weather: Weather = Weather.AVERAGE,
-    ): CalibrationStats {
-        val stats = CalibrationStats()
+    ): CalibrationStats = CalibrationStats().also {
+        runInto(it, format, innings, firstSeed, tuning, pitch, weather)
+    }
+
+    /** Accumulate into an existing collector, so a sample can span formats. */
+    fun runInto(
+        stats: CalibrationStats,
+        format: MatchFormat,
+        innings: Int,
+        firstSeed: Long = 1L,
+        tuning: EngineTuning = EngineTuning.DEFAULT,
+        pitch: Pitch = Fixtures.AVERAGE_PITCH,
+        weather: Weather = Weather.AVERAGE,
+    ) {
         val (batting, bowling) = Fixtures.averageTeams()
         repeat(innings) { i ->
             val events = mutableListOf<BallEvent>()
@@ -224,9 +246,8 @@ object CalibrationRun {
                 random = MatchRandom(firstSeed + i),
                 tuning = tuning,
                 sink = BallEventSink { events += it },
-            ).simulate()
+            ).simulate(overLimit = if (format.isMultiDay) MULTI_DAY_INNINGS_OVER_CAP else null)
             stats.record(state, events)
         }
-        return stats
     }
 }
