@@ -50,6 +50,10 @@ android {
 dependencies {
     implementation(project(":data"))
     implementation(project(":engine"))
+    // Everything this module draws is a state object built over there. If a
+    // decision about cricket is being made in a @Composable, it belongs here
+    // instead. See docs/UI.md.
+    implementation(project(":presentation"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

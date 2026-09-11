@@ -150,12 +150,28 @@ a number.
 - No cricket vocabulary in a modifier chain. If a composable is deciding
   whether something is a wicket, that decision belongs one module down.
 - Theme values live in one place; no colour literal below the theme.
-- Every screen has a `@Preview` driven by a state object from
-  `:presentation`'s test fixtures, so a preview and a test show the same thing.
+- Every screen gets a `@Preview` driven by a state object built the same way a
+  test builds one, so a preview and a test show the same thing. These land with
+  the first successful compile — an unverified preview is worth very little,
+  and writing one now would only be a second thing to fix.
 
 ## 8. Status
 
-`:presentation` is built and tested. `:app` is written against it but
-**has never been compiled** — see the note in `app/build.gradle.kts`. The first
-task in an environment with an Android SDK is to configure the build and fix
-whatever that turns up.
+`:presentation` is built and tested on a bare JDK: 56 tests covering the
+scorecard, the match centre, the charts, the profile and the career table.
+
+`:app` holds the theme, the shared components, and the match centre and
+scorecard screens. It **has never been compiled** — there is no Android SDK
+here and `dl.google.com` is blocked, so neither the SDK nor the Android Gradle
+Plugin nor Compose itself can be fetched. Treat every file under `app/` as
+declared intent.
+
+The first task in an environment with an SDK:
+
+```bash
+./gradlew :app:assembleDebug -Pcricket.includeAndroid=true
+```
+
+and then fix whatever that turns up. The screens are written against a state
+layer that is already tested, so what it turns up should be import paths and
+Compose API signatures rather than anything about cricket.
