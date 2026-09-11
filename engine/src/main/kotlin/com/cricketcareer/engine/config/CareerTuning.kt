@@ -13,6 +13,8 @@ data class CareerTuning(
     val ageing: AgeingTuning = AgeingTuning(),
     val form: FormTuning = FormTuning(),
     val fatigue: FatigueTuning = FatigueTuning(),
+    val injury: InjuryTuning = InjuryTuning(),
+    val training: TrainingTuning = TrainingTuning(),
 ) {
     companion object {
         /** The calibration reference. Every career test measures against this. */
@@ -218,4 +220,125 @@ data class FatigueTuning(
      * recovers (1 + this) times as fast as one at 1.
      */
     val fitnessRecoveryRange: Double = 0.9,
+)
+
+/**
+ * The injury hazard and what it costs.
+ *
+ * One roll per match and one per training week. The point of the model is that
+ * playing tired is how a niggle becomes a tear — it is the mechanism that
+ * punishes over-scheduling without anyone writing a rule that says
+ * "do not over-schedule".
+ */
+data class InjuryTuning(
+    /**
+     * Probability that a fast bowler with average proneness, unfatigued, at 24,
+     * breaks down in a single match. At 0.030 a seamer playing forty matches a
+     * year misses parts of one or two of them, which is roughly a real career.
+     */
+    val baseRiskPerMatchPace: Double = 0.030,
+
+    /** The same for a spinner. Lower: no run-up, no landing forces. */
+    val baseRiskPerMatchSpin: Double = 0.012,
+
+    /** The same for a specialist batter or keeper. Mostly fielding and running. */
+    val baseRiskPerMatchOutfield: Double = 0.010,
+
+    /**
+     * Risk of a training week at full intensity, relative to a match.
+     * Below one because nets are controlled, but not near zero: side strains
+     * happen in the nets and a player who only ever trains hard still breaks.
+     */
+    val trainingRiskRelativeToMatch: Double = 0.40,
+
+    /**
+     * How far fatigue multiplies the hazard. At 1.9, a spent player is nearly
+     * three times as likely to break down as a fresh one. This is the single
+     * most important number in the career layer's feedback loop: without it,
+     * resting a player is a pure loss and nobody would ever do it.
+     */
+    val fatigueRiskMultiplier: Double = 1.9,
+
+    /**
+     * How far hidden injury proneness multiplies the hazard. A player at
+     * proneness 100 is (1 + this) times as likely to break as one at 1 —
+     * the glass cricketer everyone has watched, whose fitness numbers never
+     * explained it.
+     */
+    val pronenessRiskMultiplier: Double = 1.6,
+
+    /** Age past which the hazard begins to climb. Bodies stop bouncing back. */
+    val riskRisesFromAge: Int = 29,
+
+    /** Extra hazard multiplier per year past [riskRisesFromAge]. */
+    val riskPerYearPastPeak: Double = 0.07,
+
+    /**
+     * Severity split for a player who has just broken down, fresh and young,
+     * as cumulative weights over NIGGLE, MINOR, MODERATE, SERIOUS, SEVERE.
+     * Heavily weighted to the light end: most "injuries" in a season are a
+     * player missing one game, not a player missing one year.
+     */
+    val severityWeights: List<Double> = listOf(0.46, 0.27, 0.17, 0.08, 0.02),
+
+    /**
+     * How far fatigue and age shift the severity draw toward the serious end.
+     * Playing a spent 34-year-old does not just make an injury more likely, it
+     * makes it a worse one.
+     */
+    val severityShiftFromStrain: Double = 0.28,
+
+    /** Rehab days, per severity, for an average recoverer. */
+    val rehabDaysNiggle: Int = 3,
+    val rehabDaysMinor: Int = 12,
+    val rehabDaysModerate: Int = 34,
+    val rehabDaysSerious: Int = 96,
+    val rehabDaysSevere: Int = 260,
+
+    /**
+     * How far fitness shortens rehab. A player at 100 heals in
+     * (1 - this) of the time a player at 1 takes.
+     */
+    val rehabFitnessRange: Double = 0.35,
+
+    /** Permanent points taken off every physical attribute when a severe injury resolves. */
+    val severePermanentDamage: Int = 4,
+)
+
+/**
+ * Training: what a week of work is worth.
+ *
+ * A week is 100 points split across focus areas. The gain is multiplied by
+ * `(1 - fatigue)` on purpose, so that maximum intensity forever is *not* the
+ * optimal strategy — otherwise this screen collapses into a single button.
+ */
+data class TrainingTuning(
+    /**
+     * Attribute points gained by spending a whole week (100 points) on one
+     * focus area, at maximum learning rate, full headroom, the best coaching
+     * and no fatigue.
+     *
+     * Small on purpose: a week is a week. At 0.85 a full off-season of eight
+     * focused weeks moves one area about two and a half points for a 50-rated
+     * player with potential 85 — visible over a season, and secondary to the
+     * development that comes from actually playing. Training is the part of
+     * progression the player controls, not the main engine of it.
+     */
+    val pointsPerFullWeek: Double = 0.85,
+
+    /** Fatigue added by a week at full training intensity, before rest is deducted. */
+    val fatiguePerFullWeek: Double = 0.16,
+
+    /** Fatigue cleared by a week spent entirely on rest, as a fraction of current fatigue. */
+    val restWeekRecovery: Double = 0.55,
+
+    /**
+     * Exponent on headroom, matching [AgeingTuning.headroomExponent] so that
+     * training and playing agree about how hard improvement gets near
+     * potential. If these two ever disagree, one of them is wrong.
+     */
+    val headroomExponent: Double = 0.5,
+
+    /** Standard deviation of the noise on a week's gain, in attribute points. */
+    val weeklyNoiseSigma: Double = 0.12,
 )
