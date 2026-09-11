@@ -10,16 +10,17 @@ document covers the structure everything else hangs off.
 
 ```
         ┌──────────────────────────────────────────────┐
-        │  :app        Compose UI, ViewModels, nav     │
-        │              renders events, decides nothing │
-        └───────────────────────┬──────────────────────┘
-                                │ Flow<UiState>
-        ┌───────────────────────▼──────────────────────┐
-        │  :data       Room, repositories, save/load   │
-        │              seed JSON, engine ⇄ row mapping │
-        └───────────────────────┬──────────────────────┘
-                                │ value objects
-        ┌───────────────────────▼──────────────────────┐
+        │  :app        Compose only: layout, colour,   │
+        │              navigation, animation           │
+        └──────────┬───────────────────────┬───────────┘
+                   │ UiState               │ Flow<value objects>
+        ┌──────────▼────────────┐  ┌───────▼──────────────────────┐
+        │  :presentation        │  │  :data                       │
+        │  what a screen shows  │  │  Room, repositories,         │
+        │  pure Kotlin/JVM      │  │  save/load, seed JSON        │
+        └──────────┬────────────┘  └───────┬──────────────────────┘
+                   │                       │ value objects
+        ┌──────────▼───────────────────────▼───────────┐
         │  :engine     domain model, match simulation, │
         │              progression, selection, text    │
         │              pure Kotlin/JVM, deterministic  │
@@ -32,6 +33,18 @@ document covers the structure everything else hangs off.
 
 The engine is the only place cricket is decided. Everything above it either
 stores what the engine said or draws it.
+
+`:presentation` sits between the two for a reason worth stating plainly: it is
+the layer where "what does this screen show" is decided, and that question has
+wrong answers — a chase equation that divides by the balls bowled, a worm
+plotted against deliveries so it drifts right for every wide, a scorecard
+reading `b b Kadam`. None of those is caught by looking at a screenshot, and
+all of them are a unit test on a bare JDK. Keeping them out of `@Composable`
+functions is what makes them testable at all.
+
+It is pure Kotlin/JVM and always in the build, so `:app` is Compose and nothing
+else — which also makes the part of the product that cannot be compiled without
+an Android SDK as small as it can be. See docs/UI.md.
 
 ---
 

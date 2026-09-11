@@ -39,8 +39,10 @@ These are not preferences. A change that breaks one of them is a bug.
 ## 3. Module boundaries
 
 ```
-:app  ──────►  :data  ──────►  :engine  ◄────── :sim-harness
-(Compose)      (Room)          (pure JVM)       (JVM CLI)
+:app  ──┬───►  :presentation  ──►  :engine  ◄────── :sim-harness
+(Compose)│     (pure JVM)          (pure JVM)       (JVM CLI)
+         └───►  :data  ────────────────┘
+                (Room)
 ```
 
 Arrows are the **only** permitted dependency directions.
@@ -66,10 +68,22 @@ Room entities, DAOs, repositories, save/load, and the mapping between
 
 `:engine` must never learn this module exists.
 
+### `:presentation` — what a screen shows
+Pure Kotlin/JVM, no Android. One immutable state object per screen and one pure
+function that builds it from engine values: the chase equation, the scorecard
+rows and their how-out notation, the worm and manhattan series, the grouping of
+commentary into overs.
+
+This is where the UI bugs actually live, and every one of them is a unit test on
+a bare JDK rather than something you squint at in an emulator. It may depend on
+`:engine` and nothing else — where a value came from is not a presentation
+concern.
+
 ### `:app` — UI
-Compose, ViewModels, navigation. **Contains no cricket logic.** If a rule about
-cricket is being decided in `:app`, it is in the wrong place. The UI reads
-engine events and renders them; it does not interpret them.
+Compose and nothing else: layout, colour, navigation, animation. **Contains no
+cricket logic.** If a rule about cricket is being decided in `:app`, it is in
+the wrong place — and now there is a module boundary enforcing it rather than
+good intentions. The UI renders a state object; it does not build one.
 
 ### `:sim-harness` — the calibration instrument
 A first-class deliverable, not a debug tool. Runs bulk simulations on the JVM
@@ -243,7 +257,7 @@ tests, wait for approval.
 | 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | **Partly done — DLS outstanding, see docs/CALIBRATION.md** |
 | 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |
 | 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
-| 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | Not started |
+| 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` done and tested; `:app` written but never compiled** |
 | 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | Not started |
 | 8 | Performance, battery, APK size, accessibility, polish | Not started |
 
@@ -257,6 +271,7 @@ tests, wait for approval.
 | `docs/SIMULATION_MODEL.md` | The match engine maths: coordinate system, all six stages, pitch model, pressure |
 | `docs/CALIBRATION.md` | Target bands, measurement method, and a log of every calibration run |
 | `docs/CAREER_MODEL.md` | The career layer: the clock, ageing, form, fatigue, injury, training, selection, contracts, the three world tiers |
+| `docs/UI.md` | The screens, the `:presentation` split, and why `:app` holds no logic |
 | `docs/OPEN_QUESTIONS.md` | Decisions that need the project owner, each with a working default |
 
 ### Decisions already taken

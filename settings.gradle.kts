@@ -17,12 +17,17 @@ dependencyResolutionManagement {
 rootProject.name = "cricket-career"
 
 // ---------------------------------------------------------------------------
-// Pure-JVM modules. These are ALWAYS in the build: the engine and the
-// calibration harness must be buildable and testable on a bare JDK with no
-// Android SDK, because that is where 99% of the simulation work happens
-// (and it is what CI runs on every push). See CLAUDE.md - "Module boundaries".
+// Pure-JVM modules. These are ALWAYS in the build: the engine, the
+// presentation layer and the calibration harness must be buildable and
+// testable on a bare JDK with no Android SDK, because that is where 99% of the
+// work happens (and it is what CI runs on every push).
+//
+// :presentation is here rather than inside :app on purpose - see docs/UI.md.
+// It keeps the part of the product that needs an Android SDK to compile as
+// small as it can be. See CLAUDE.md - "Module boundaries".
 // ---------------------------------------------------------------------------
 include(":engine")
+include(":presentation")
 include(":sim-harness")
 
 // ---------------------------------------------------------------------------
