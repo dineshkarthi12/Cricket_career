@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import com.cricketcareer.app.ui.theme.CricketDynastyTheme
-import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * The host activity.
@@ -14,7 +13,6 @@ import dagger.hilt.android.AndroidEntryPoint
  * Navigation and the screen graph arrive with the repository wiring; for now
  * this establishes the theme, which is the thing every screen depends on.
  */
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

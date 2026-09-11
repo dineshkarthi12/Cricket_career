@@ -155,7 +155,29 @@ a number.
   the first successful compile — an unverified preview is worth very little,
   and writing one now would only be a second thing to fix.
 
-## 8. Status
+## 8. What the build carries, and when
+
+Phase 0 wired Hilt, KSP and Room into `:app` and `:data` as declared intent.
+The first sync on a machine with an Android SDK showed the bill for that:
+Hilt's Gradle plugin fails on `com.android.build.gradle.api.BaseVariant`, a
+class newer AGP has removed, and it was failing on behalf of a dependency graph
+that did not exist — `:data` has no source files at all, and `:app` had not one
+`@Inject` in it.
+
+So they are out until there is code for them to act on:
+
+| Comes back | With |
+|---|---|
+| Room + KSP | Phase 7, alongside the first entity, DAO and repository |
+| Hilt | Phase 7, alongside the repositories worth injecting |
+
+A plugin earns its place when something depends on it. Carrying one in advance
+buys nothing and costs a version-compatibility problem on every toolchain
+upgrade — which is exactly what it cost here.
+
+---
+
+## 9. Status
 
 `:presentation` is built and tested on a bare JDK: 56 tests covering the
 scorecard, the match centre, the charts, the profile and the career table.

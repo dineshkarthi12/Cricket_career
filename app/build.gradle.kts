@@ -4,12 +4,19 @@
 // module, it is in the wrong place (see CLAUDE.md - "Module boundaries").
 //
 // NOTE: not yet compiled - see the note in data/build.gradle.kts.
+// No Hilt and no KSP. There is nothing to inject yet - not one @Inject in the
+// module - and a dependency-injection framework with no dependency graph is a
+// Gradle plugin, an annotation processor and a version-compatibility problem in
+// exchange for nothing. Hilt's plugin is also the thing that broke the first
+// real sync: it reaches for com.android.build.gradle.api.BaseVariant, which
+// newer AGP has removed.
+//
+// Both come back in Phase 7, when :data has a database and there is something
+// worth injecting. See docs/UI.md.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -64,10 +71,6 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
-    implementation(libs.hilt.android)
-    implementation(libs.hilt.navigation.compose)
-    ksp(libs.hilt.compiler)
-
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

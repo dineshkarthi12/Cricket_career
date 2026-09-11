@@ -4,16 +4,18 @@
 // immutable value objects and stored rows. :engine knows nothing about this
 // module; the dependency arrow only ever points :data -> :engine.
 //
-// NOTE: this module has not been compiled yet - the development container has no
-// Android SDK, so settings.gradle.kts leaves it out of the build. Treat the
-// dependency wiring below as a declared intent to be verified the first time the
-// project is opened with an SDK present.
+// This module currently has NO SOURCE FILES. Room, KSP and Hilt were wired in
+// during Phase 0 as declared intent, and the first sync on a machine with an
+// Android SDK showed what that costs: an annotation processor with nothing to
+// process, and Hilt's Gradle plugin failing on a class newer AGP has deleted.
+//
+// So the wiring is stripped back to what the module actually needs to exist,
+// and Room, KSP and Hilt return in Phase 7 alongside the first entity, DAO and
+// repository. A plugin earns its place when there is code for it to act on.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -42,11 +44,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
+    // Room and Hilt return in Phase 7, with the code that needs them.
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
