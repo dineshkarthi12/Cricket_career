@@ -44,27 +44,34 @@ object InningsExport {
             else -> MatchFormat.T20
         }
 
-        val state = InningsSimulator(
+        // A whole match, not a single innings: the match screen needs a real
+        // chase to show a required rate against, and "needs 45 off 34" has to be
+        // arithmetic the engine actually produced.
+        val match = com.cricketcareer.engine.match.sim.MatchSimulator(
             format = format,
-            battingSide = batting,
-            bowlingSide = bowling,
+            homeSide = batting,
+            awaySide = bowling,
             venue = Fixtures.AVERAGE_VENUE,
-            pitch = Fixtures.AVERAGE_PITCH,
+            startingPitch = Fixtures.AVERAGE_PITCH,
             weather = Weather.AVERAGE,
             level = LadderLevel.FRANCHISE_T20,
-            random = MatchRandom(args.seed),
+            seed = args.seed,
             sink = sink,
         ).simulate()
+        val state = match.completedInnings.first()
+        val chase = match.completedInnings.getOrNull(1)
 
         val json = buildString {
             append("{\n")
             append("\"format\":").append(quote(format.displayName)).append(",\n")
             append("\"seed\":").append(args.seed).append(",\n")
+            append("\"result\":").append(quote(describe(match.result, names))).append(",\n")
             append("\"balls\":[\n")
             sink.events().forEachIndexed { index, event ->
                 if (index > 0) append(",\n")
                 val outcome = event.outcome
                 append("{")
+                append("\"inn\":").append(event.id.innings).append(",")
                 append("\"o\":").append(event.id.over).append(",")
                 append("\"b\":").append(event.id.ballInOver).append(",")
                 append("\"bowler\":").append(quote(names[event.bowler] ?: "")).append(",")
@@ -95,7 +102,11 @@ object InningsExport {
                 append("}")
             }
             append("\n],\n")
-            append(scorecardJson(state, names))
+            append("\"innings1\":{").append(scorecardJson(state, names)).append("},\n")
+            append("\"innings2\":").append(
+                chase?.let { "{" + scorecardJson(it, names) + "}" } ?: "null",
+            ).append(",\n")
+            append("\"target\":").append(chase?.target ?: 0).append("\n")
             append("}\n")
         }
 
@@ -103,6 +114,23 @@ object InningsExport {
         println("Wrote ${sink.size} balls to $outputPath")
         println("Final score: ${state.snapshot().display}")
     }
+
+    /** The result, in the form a scoreboard prints it. */
+    private fun describe(
+        result: com.cricketcareer.engine.match.state.MatchResult?,
+        names: Map<PlayerId, String>,
+    ): String = when (result) {
+        is com.cricketcareer.engine.match.state.MatchResult.WonByRuns ->
+            "${result.winner} won by ${result.runs} runs"
+        is com.cricketcareer.engine.match.state.MatchResult.WonByWickets ->
+            "${result.winner} won by ${result.wickets} wickets"
+        is com.cricketcareer.engine.match.state.MatchResult.WonByInnings ->
+            "${result.winner} won by an innings and ${result.runs} runs"
+        is com.cricketcareer.engine.match.state.MatchResult.Tied -> "Match tied"
+        is com.cricketcareer.engine.match.state.MatchResult.Drawn -> "Match drawn"
+        is com.cricketcareer.engine.match.state.MatchResult.NoResult -> "No result"
+        null -> "In progress"
+    }.also { require(names.isNotEmpty()) }
 
     private fun scorecardJson(state: InningsState, names: Map<PlayerId, String>): String {
         val card = state.snapshot()
