@@ -13,18 +13,25 @@
 //
 // Declaring both here pins the version once and the conflict disappears.
 //
-// All plugins used across subprojects (Kotlin, AGP, KSP, Hilt) are declared
-// here with `apply false` to ensure version pinning and unified classloader
-// resolutions across modules.
+// The Android plugins proper (AGP, KSP, Hilt) are NOT declared here, and the
+// reason is a hard constraint rather than a preference: a machine with no
+// Android SDK cannot resolve AGP at all, and declaring it here — even
+// `apply false` — is enough to take the whole build down on such a machine,
+// including `:engine:test`. That is the 99% case (CLAUDE.md §7) and the one
+// CI runs on every push.
+//
+// They were added here while getting the first real Android sync to pass, and
+// they did get it to pass — but the same commit also moved the Gradle wrapper
+// from 8.14.3 to 8.14.5, so which of the two actually fixed it is untested.
+// This keeps the wrapper bump and drops the declarations, because only one of
+// them breaks the JVM build. If the Android sync fails again, the declarations
+// were load-bearing and they come back behind the same
+// `cricket.includeAndroid` switch settings.gradle.kts already uses.
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.compose.compiler) apply false
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.android.library) apply false
-    alias(libs.plugins.ksp) apply false
-    alias(libs.plugins.hilt) apply false
 }
 
 subprojects {
