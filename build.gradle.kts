@@ -20,13 +20,16 @@
 // including `:engine:test`. That is the 99% case (CLAUDE.md §7) and the one
 // CI runs on every push.
 //
-// They were added here while getting the first real Android sync to pass, and
-// they did get it to pass — but the same commit also moved the Gradle wrapper
-// from 8.14.3 to 8.14.5, so which of the two actually fixed it is untested.
-// This keeps the wrapper bump and drops the declarations, because only one of
-// them breaks the JVM build. If the Android sync fails again, the declarations
-// were load-bearing and they come back behind the same
-// `cricket.includeAndroid` switch settings.gradle.kts already uses.
+// They were added here while getting the first real Android sync to pass,
+// in the same commit that moved the Gradle wrapper from 8.14.3 to 8.14.5.
+// Separating the two showed the wrapper bump was the whole fix: with the
+// declarations removed and 8.14.5 kept, the Android sync still passes on a
+// machine with an SDK and `check` still passes on one without.
+//
+// Kotlin's own plugins DO belong here. `kotlin.jvm` and `kotlin.android` are
+// two ids on one artifact, so declaring only the first leaves that artifact on
+// the root classpath with no version attached and :app's request for the
+// second fails. Declaring both pins the version once.
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.android) apply false
