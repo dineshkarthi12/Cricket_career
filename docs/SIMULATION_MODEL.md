@@ -354,6 +354,11 @@ real weapon: it feeds directly into Stage 4/5 as a length mismatch, which is
 exactly how a batter ends up stumped having come down the pitch to a ball that
 was never there.
 
+**Which deceptions a bowler even has** is decided by his action, not by which
+way his stock ball turns: a googly belongs to a wrist-spinner and a doosra or
+carrom ball to a finger-spinner. Turn direction does not decide it — a left-arm
+wrist-spinner turns the ball *into* a right-hander and still bowls a googly.
+
 **Wrong'un detection** is a Bernoulli resolved in Stage 4, not here:
 
 ```
@@ -372,10 +377,15 @@ z_s = zRef(y_p, v, bowlerReleaseHeight) · B_pitch + N(0, σ_vb)
 σ_vb = 0.02 + 0.16 · cracks · deterioration
 ```
 
-`zRef` is the rebound trajectory for a reference pitch — roughly 0.05 m for a
-yorker, 0.75 m (just over the stumps) for a good length at 135 km/h, 1.25 m for a
-ball pitching at 12 m. `B_pitch ∈ [0.72, 1.28]` spans a slow low deck to a hard
-bouncy one.
+`zRef` is the rebound trajectory for a reference pitch: roughly 0.06 m for a
+yorker, 0.79 m (just over the stumps) for a good length, rising steeply through
+the back-of-a-length band to 1.41 m at 12 m, peaking around 1.71 m at 15 m — the
+throat ball — and then **falling away again**, because a genuine long hop has
+already come down by the time it reaches the batter. That last part is why a
+long hop is a long hop and not a bouncer, and a monotonic curve produces neither
+a bouncer over the shoulder nor a wide over the head.
+
+`B_pitch ∈ [0.72, 1.28]` spans a slow low deck to a hard bouncy one.
 
 `σ_vb` is the day-five number. At `cracks = 0.8, deterioration = 0.9` it is
 0.14 m of standard deviation on bounce height — enough that a good-length ball
@@ -443,9 +453,31 @@ vacant deep midwicket scores more than lofting to a man there; a gap at third
 man makes the steer worth playing. This is what makes the AI captain's field
 settings matter to the batter rather than being decoration.
 
-Shot set: leave, defend front, defend back, drive (straight/cover/on),
-cut, late cut, pull, hook, sweep, reverse sweep, slog sweep, flick, glance, loft,
-ramp/scoop, block-and-run.
+Shot set: leave, forward and back-foot defensive, push into the off side, drive
+(straight/cover/on), back-foot punch, work off the hip, hit down the ground,
+cut, late cut, pull, hook, flick, glance, sweep, slog sweep, reverse sweep, loft
+over the off and leg sides, ramp.
+
+**The good-length band needs its own answers.** The first shot table had every
+attacking stroke wanting either a half-volley or a long hop, so a good length —
+the most common delivery in cricket — left a batter with nothing but a block or
+a leave. Batters left 29% of a Twenty20. The back-foot punch, the work off the
+hip and the hit down the ground exist to cover the band that bowlers actually
+bowl in.
+
+**The upside is priced by what the shot would score, not by how dangerous it
+is.** Multiplying the reward by `shot.risk` made a wild stroke attractive for
+being wild; it is `powerFactor` that says what a shot is worth. A defensive
+stroke suits a far wider range of deliveries than a loft does and so wins on
+fit every time — the reward term is what has to pay for the attacking shot, and
+it has to pay enough or nobody ever plays one.
+
+**A leave is scored on the same scale as a stroke.** Giving it its own formula,
+or a forgiving tolerance, makes it fit every ball and beat a defensive shot to
+almost any delivery. In this model a leave has a *tight* tolerance — it suits
+exactly one kind of ball, one going past off stump — and it is charged for the
+delivery it uses up, which is why nobody leaves in a Twenty20 and a red-ball
+opener leaves all day.
 
 ### 7.3 The key move
 
@@ -463,13 +495,30 @@ Each shot has an ideal interception point and a tolerance ellipsoid. Form the
 mismatch between where the bat is going and where the ball is:
 
 ```
-d = ( y_p − ŷ , x_bat − x̂ , z_bat − ẑ , timingError )
+batPoint = shotIdeal + adjust · (perceived − shotIdeal),   adjust = 0.55 + 0.40·e(technique)
+batPoint.x clamped to [−0.46, +0.86] m,  batPoint.z clamped to [0, 1.75] m
 
-timingError ~ N(μ_t, σ_t)
-σ_t = 0.055 · (1.50 − 0.90·e(timing)) · Λ_settle · (1 + 0.50·P)     seconds
+d = ( y_p + v·timingError − batLength , x − batLine , z − batHeight )
+
+timingError ~ N(0, σ_t)
+σ_t = 0.008 · (1.50 − 0.90·e(timing)) · Λ_settle · (1 + 0.50·P)     seconds
 
 contactQuality  q = exp( −½ · dᵀ W d )        ∈ (0, 1]
 ```
+
+Two things here are load-bearing and were both wrong in the first
+implementation:
+
+**The timing constant is in seconds and gets multiplied by the ball's speed.**
+8 ms at 140 km/h is 0.31 m, about half a shot's tolerance. The original 55 ms
+put the bat more than two metres from the ball and nobody middled anything. It
+also means timing matters more against pace than against spin without a line of
+code saying so.
+
+**The bat's reach is capped, and asymmetrically.** A batter can stretch a long
+way outside off and barely at all outside leg. Without the clamp the bat
+followed the ball wherever it went — batters middled deliveries a metre wide of
+off stump, and wides, bowled and lbw all but disappeared from the game at once.
 
 `W` is the inverse tolerance matrix for that shot, scaled by `e(technique)`,
 `e(footwork)` (front-foot or back-foot component depending on the shot), and the
@@ -486,8 +535,15 @@ forward defence, which is why it goes wrong more often.
 | `Δz > +tol` (bounced more than expected) | top edge, splice, or glove |
 | `Δz < −tol` (kept low or skidded) | bottom edge, or through the gate |
 | `Δy < −tol` (fuller than played for) | leading edge, or yorked |
-| `Δy > +tol` (shorter than played for) | under-edge, gloved, splice |
+| `Δy > +tol` (shorter than played for) | splice if it is bouncing, otherwise a mistimed shot off the middle |
 | all within `tol` | middled; `q` near 1, timing decides the rest |
+
+**A leading edge needs a horizontal bat.** It is a face-turning fault: playing
+*across* the line of a ball that arrived fuller than expected. Getting the
+length wrong to a straight-batted drive mistimes the shot — which the contact
+quality already records — it does not turn the face. Mapping every length error
+to a leading edge put them at 11% of all deliveries, roughly ten times reality,
+and filled the slips and the covers with looping catches.
 
 Then, on a miss:
 
@@ -531,7 +587,22 @@ A field setting is a list of positions `(x, y)` with a reach radius and a
 reaction time. For each ball in play the engine computes time-to-intercept
 against ball-time-to-that-point.
 
-**Aerial:**
+**The bowler is a fielder.** He is not in the field setting, because nobody
+places him, but he is unquestionably out there. Leaving him out meant nothing
+stopped a ball pushed back down the pitch and every soft defensive shot became a
+single. He fields with a `mobility` of 0.32 — finishing his action off balance
+and going the wrong way, he stops what comes to him and takes the occasional
+return catch, but he does not cut off a drive travelling at 30 m/s.
+
+**A catch in the cordon and a catch in the deep are different questions.**
+
+- The **cordon** takes the ball *on its way through*, at chest height, with no
+  time to judge it: an along-the-flight-path question.
+- The **outfield** takes it *coming down*, having run to where it will land: a
+  can-he-get-there-in-time question.
+
+Modelling the deep like the cordon catches nothing at all — a fielder 62 m out
+is four metres under a ball that is still ten metres up as it passes him.
 
 ```
 difficulty = w1·(distanceToTravel / timeAvailable)
@@ -550,10 +621,21 @@ definition used: any aerial ball entering a fielder's reach envelope with
 restricted to `p ≥ 0.40` ("regulation"), because the two are what commentators
 mean at different moments and only one of them can match a single band.
 
-**Along the ground:** does it beat the 27.43 m ring? Then the boundary rider's
-interception point sets runs available, against the batters' running. Misfields
-are Bernoulli from `groundFielding`; overthrows from `throwArm` and `P`; relay
-throws from the deep.
+**Along the ground**, two distinct things happen and conflating them wrecks the
+boundary rate:
+
+- **Interception.** A fielder stops the ball where it passes him, if he can get
+  across to its line before it does. His sideways speed for this is 3.0 m/s —
+  a step and a dive across the line of a ball already travelling, not a sprint.
+  At full sprint speed an infielder cut off everything within nine metres of
+  himself and the boundary rate sat near zero. **A fielder cannot intercept a
+  ball that flew over his head**: only once it has pitched is it his to stop,
+  which is the entire point of hitting over the infield.
+- **The chase.** If nobody cuts it off, the nearest man runs it down, and how
+  long that takes decides one, two or three.
+
+Misfields are Bernoulli from `groundFielding`; overthrows from `throwArm` and
+`P`; relay throws from the deep.
 
 ### 9.4 LBW
 
@@ -576,8 +658,13 @@ throws from the deep.
 - The call: striker calls in front of square, non-striker behind. Call quality
   from `runningBetweenWickets` and `composure`.
 - Hesitation is Bernoulli; on hesitation the running start is lost (~0.35 s).
-- Batters cover 17.7 m at 7.3–8.6 m/s from `speed`, plus a turn cost for second
+- Batters cover 17.7 m at 6.6–8.6 m/s from `speed`, plus a turn cost for second
   and third runs.
+- **A run being arithmetically available is not a reason to take it.** Batters
+  want a comfortable margin (0.74 s) before setting off without thinking; below
+  that they take it only sometimes, and below zero only rarely. Treating every
+  possible single as a single turned every push to a close fielder into a run
+  and left the game with too few dots *and* too few boundaries at the same time.
 - Fielder: time to the ball + pick-up (from `groundFielding`) + throw flight
   (from `throwArm`) + direct-hit probability, or collection and break at the
   stumps.
@@ -712,3 +799,11 @@ Open items where the model above makes a choice that should be challenged.
 5. **Bowler belief convergence** (§4) has no empirical anchor. It is chosen to
    make the career arc work; it needs a sanity check that a good player does not
    become permanently "solved".
+6. **Play-and-miss sits around 19% of deliveries**, against a real figure nearer
+   10-12%. The aggregate bands are all met, so the surplus is being absorbed
+   somewhere — most likely as beaten balls that should be edges. Worth chasing
+   in Phase 4 when the fielding model is deepened.
+7. **The hazard curve falls over the first twenty balls and then flattens and
+   rises slightly.** The early fall is the settling model working. The late rise
+   is a set batter accelerating, which is right for Twenty20 but needs checking
+   against the longer formats in Phase 3, where it should keep falling.

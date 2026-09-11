@@ -30,6 +30,8 @@ fun main(args: Array<String>) {
 
     when (parsed.report) {
         "players" -> PlayerReport.run(parsed)
+        "calibration" -> CalibrationReport.run(parsed)
+        "scorecard" -> ScorecardReport.run(parsed)
         else -> {
             // Proves the seeding contract end to end: the harness can name a
             // match and reproduce it exactly. Phase 2 replaces this with a

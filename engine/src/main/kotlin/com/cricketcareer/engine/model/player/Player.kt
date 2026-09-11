@@ -84,8 +84,18 @@ data class Player(
     /** Whether this player keeps wicket. */
     val keeps: Boolean get() = role.keeps
 
-    /** Whether this player is a genuine bowling option. */
-    val bowls: Boolean get() = bowlingStyle.bowls && role.bowls
+    /**
+     * Whether he bowls at all.
+     *
+     * Deliberately just "has a bowling style": a middle-order batter who bowls
+     * off breaks is someone a captain can throw the ball to, and excluding
+     * part-timers from the attack leaves sides unable to get through their
+     * overs. Whether he is a *frontline* option is [isFrontlineBowler].
+     */
+    val bowls: Boolean get() = bowlingStyle.bowls
+
+    /** A specialist bowler or an all-rounder, as opposed to a part-timer. */
+    val isFrontlineBowler: Boolean get() = bowlingStyle.bowls && role.bowls
 
     /** Convenience for the engine: an attribute on the working [0, 1] scale. */
     fun skill(attribute: Attribute): Double = attributes.normalised(attribute)

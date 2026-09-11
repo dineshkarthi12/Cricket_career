@@ -137,8 +137,65 @@ Tiers are defined in `SIMULATION_MODEL.md` §12.
 
 ## 5. Run log
 
-No runs yet — there is no match engine until Phase 2.
-
-| Date | Commit | Format | Matches | Seed | Result | Notes |
+| Date | Commit | Format | Innings | Seed | Result | Notes |
 |---|---|---|---|---|---|---|
-| — | — | — | — | — | — | Awaiting Phase 2 |
+| 2026-09-11 | Phase 2 | T20 | 4000 | 1 | **All 13 bands met** | 471,010 balls in 3.4 s |
+
+### 2026-09-11 — T20, first full calibration
+
+```
+Metric                          Measured   Target
+Run rate (per over)                 8.79   8.0 - 8.8    ok
+Dot ball %                         35.66   30.0 - 36.0  ok
+Boundary % of balls                17.12   17.0 - 20.0  ok
+Balls per wicket                   18.24   16.0 - 19.0  ok
+Wide %                              3.97   3.0 - 5.0    ok
+No ball %                           0.80   0.4 - 1.0    ok
+Byes+leg byes % of runs             1.73   1.5 - 2.5    ok
+Catch success %                    76.99   75.0 - 80.0  ok
+Caught % of dismissals             59.05   56.0 - 62.0  ok
+Bowled % of dismissals             20.88   18.0 - 22.0  ok
+LBW % of dismissals                14.26   12.0 - 16.0  ok
+Run out % of dismissals             4.74   4.0 - 6.0    ok
+Stumped % of dismissals             1.07   1.0 - 3.0    ok
+```
+
+Shape checks, which matter more than the headline rates:
+
+- **Survival hazard falls** from 6.1 dismissals per 100 balls in a batter's
+  first five to 5.3 once he is twenty balls in. That fall is the settling model,
+  and it is what produces the score distribution rather than any score being
+  sampled.
+- **Individual scores** are 47% single figures, 38% in the 10-39 band, 5% past
+  70, 1.2% hundreds. Geometric with a long thin tail, as required — not normal.
+- **Mean innings total 172**, all out or twenty overs.
+
+**What it took.** Getting here was eleven distinct model faults, not eleven knob
+turns. The ones worth remembering:
+
+1. Timing error was specified in seconds and multiplied by ball speed; at 55 ms
+   that put the bat two metres from the ball.
+2. The bat had unlimited reach, so batters middled deliveries a metre wide of
+   off and wides, bowled and lbw vanished together.
+3. The bowler was not in the field, so every push back down the pitch was a
+   single.
+4. Infielders could intercept balls hit *over their heads*.
+5. Infielders cut off a drive travelling at 30 m/s because their sideways speed
+   was set to a full sprint.
+6. Deep fielders were modelled like slips — asked to catch the ball as it passed
+   them, when they are four metres under it — so nothing was ever caught in the
+   deep.
+7. `LEAVE` had a forgiving tolerance, which made it fit every ball; batters left
+   29% of a Twenty20.
+8. No shot in the table scored off a good length, the most common delivery in
+   cricket.
+9. Attacking shots were priced by their danger rather than by what they score.
+10. Every length misjudgement produced a leading edge.
+11. Exit speed off the bat was low enough that nothing reached the rope.
+
+Each of these was found by measuring, not by inspection — which is the argument
+for the harness being a first-class deliverable rather than a debug tool.
+
+**Still open:** play-and-miss sits near 19% of deliveries against a real 10-12%,
+and the hazard curve flattens rather than continuing to fall after twenty balls.
+Both are recorded in `SIMULATION_MODEL.md` §13.

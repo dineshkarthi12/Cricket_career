@@ -1,0 +1,501 @@
+package com.cricketcareer.engine.config
+
+/**
+ * Every tunable number in the match engine.
+ *
+ * Per CLAUDE.md §5, no magic number lives at a call site. Each field here says
+ * what it is, what moving it does, and which calibration band it answers to.
+ *
+ * Three tiers, per docs/SIMULATION_MODEL.md §12:
+ *  - **Tier 1** physical constants live in `Geometry` and are not tunable at all.
+ *  - **Tier 2** model parameters are the sub-configs below. Change one only with
+ *    a cricketing argument, never to chase a number.
+ *  - **Tier 3** is [knobs] — a deliberately small set of global scalars, each
+ *    chosen to move one target family roughly monotonically. Calibration is
+ *    coordinate descent over those, and nothing else.
+ *
+ * Passed into the simulation, never read from a global, so the harness can
+ * sweep a parameter and difficulty settings can be data rather than code.
+ */
+data class EngineTuning(
+    val intent: IntentTuning = IntentTuning(),
+    val execution: ExecutionTuning = ExecutionTuning(),
+    val movement: MovementTuning = MovementTuning(),
+    val perception: PerceptionTuning = PerceptionTuning(),
+    val contact: ContactTuning = ContactTuning(),
+    val outcome: OutcomeTuning = OutcomeTuning(),
+    val pressure: PressureTuning = PressureTuning(),
+    val knobs: CalibrationKnobs = CalibrationKnobs(),
+) {
+    companion object {
+        val DEFAULT: EngineTuning = EngineTuning()
+    }
+}
+
+/**
+ * Tier 3. The only things calibration is allowed to turn.
+ *
+ * All default to 1.0, so a fresh engine is "the model as designed" and every
+ * deviation from 1.0 is a visible, reviewable admission that the model needed
+ * help. When two bands can only be satisfied by opposite moves of one knob,
+ * stop turning it — that is the signal a Tier 2 model is wrong.
+ */
+data class CalibrationKnobs(
+    /** Widens or narrows every bowler's execution error. Moves dot %, boundary %, wicket rate; wides follow. */
+    val executionSpreadScale: Double = 1.0,
+
+    /** Scales how badly the batter mis-reads the ball. The primary wicket-rate control. */
+    val perceptionErrorScale: Double = 1.0,
+
+    /** Scales every shot's tolerance ellipsoid. Up means better contact: more boundaries, fewer edges. */
+    val contactToleranceScale: Double = 1.0,
+
+    /** Scales catch difficulty. Moves the drop rate and the caught share of dismissals. */
+    val catchDifficultyScale: Double = 1.0,
+
+    /** Shifts batter risk appetite. Moves run rate and dot % together, and wicket rate with them. */
+    val aggressionBias: Double = 0.0,
+
+    /** Scales how readily an umpire raises the finger. Moves the LBW share against the bowled share. */
+    val lbwStrictnessScale: Double = 1.12,
+
+    /** Scales exit speed off the bat. Moves boundary % without touching the dismissal mix much. */
+    val batPowerScale: Double = 1.158,
+)
+
+/** Stage 1 — what the bowler is trying to bowl. */
+data class IntentTuning(
+    /**
+     * Softmax temperature on delivery choice.
+     *
+     * Low makes bowlers relentless and *readable*; high makes them scattergun.
+     * The trade-off is real cricket: a disciplined bowler is predictable, and a
+     * batter can set up against him.
+     */
+    val baseTemperature: Double = 0.35,
+
+    /** How much poor discipline raises the temperature. */
+    val disciplineTemperatureWeight: Double = 0.60,
+
+    /** How much aggression raises it. */
+    val aggressionTemperatureWeight: Double = 0.40,
+
+    /** Chance per ball that a bowler re-draws his plan for the batter he is bowling at. */
+    val planRedrawChance: Double = 1.0 / 6.0,
+
+    /** Boundaries in the last three balls that force an immediate plan change. */
+    val planFailureBoundaries: Int = 2,
+
+    /**
+     * How fast a bowler's belief about a batter converges on the truth, per ball
+     * bowled at him. Slow: a debutant's weakness against the short ball is not
+     * known on day one, it gets found out.
+     */
+    val beliefLearningRate: Double = 0.035,
+)
+
+/** Stage 2 — execution error. */
+data class ExecutionTuning(
+    /**
+     * Base standard deviation of length error, in metres, for a bowler with
+     * accuracy 50 bowling a stock ball, unfatigued, no pressure.
+     *
+     * Raising it widens the spread of lengths, which lifts boundary rate *and*
+     * wicket rate together. The primary control on T20 dot % (target 30-36%).
+     */
+    val lengthSigmaBase: Double = 0.62,
+
+    /**
+     * Base standard deviation of line error, in metres.
+     *
+     * Far tighter than length: bowlers miss their length much more often than
+     * their line, and that asymmetry is what makes length the more valuable
+     * skill. Also the emergent driver of the wide rate (target 3-5% white ball).
+     */
+    val lineSigmaBase: Double = 0.225,
+
+    /** Multiplier at accuracy 0. */
+    val accuracyWorst: Double = 1.55,
+
+    /** Multiplier at accuracy 100. */
+    val accuracyBest: Double = 0.45,
+
+    /** How much fatigue widens the error, and how non-linearly. */
+    val fatigueWeight: Double = 0.45,
+    val fatigueExponent: Double = 1.40,
+
+    /** How much pressure widens it, before composure damps the effect. */
+    val pressureWeight: Double = 0.30,
+
+    /**
+     * Fraction of deliveries drawn from the wide tail, and how much wider it is.
+     *
+     * A single Gaussian produces far too few genuine long hops and rank full
+     * tosses. Every bowler has an occasional one that gets away, and the heavy
+     * tail is where free boundaries — and a good share of the wickets that
+     * follow them — come from.
+     */
+    val tailProbability: Double = 0.035,
+    val tailWidening: Double = 2.60,
+
+    /** Correlation between length and line error along the bowler's release angle. */
+    val lengthLineCorrelation: Double = 0.15,
+
+    /** Base per-ball probability of overstepping, for a disciplined fresh bowler. */
+    val noBallBase: Double = 0.0045,
+    val noBallDisciplineWeight: Double = 1.20,
+    val noBallFatigueWeight: Double = 0.50,
+
+    /** Relative spread of delivered pace around the target. */
+    val paceSigmaFraction: Double = 0.020,
+
+    /** How much fatigue costs a bowler off his pace. */
+    val paceFatigueLoss: Double = 0.060,
+)
+
+/** Stage 3 — what the ball does. */
+data class MovementTuning(
+    /** Overs constants for ball condition: shine, roughness and hardness decay. */
+    val shineDecayOvers: Double = 22.0,
+    val roughnessGrowthOvers: Double = 30.0,
+    val hardnessDecayOvers: Double = 25.0,
+    val hardnessFloor: Double = 0.35,
+
+    /** Maximum conventional swing at the stumps, in metres, for a great swing bowler. */
+    val swingMax: Double = 0.55,
+
+    /** Shine differential builds over this many overs, then decays over this many. */
+    val swingBuildOvers: Double = 2.5,
+    val swingDecayOvers: Double = 18.0,
+
+    /** Atmospheric term: base, plus humidity and cloud weights, clamped. */
+    val atmosphereBase: Double = 0.75,
+    val humidityWeight: Double = 0.50,
+    val cloudWeight: Double = 0.35,
+    val atmosphereMin: Double = 0.60,
+    val atmosphereMax: Double = 1.60,
+
+    /**
+     * Pace at which conventional swing peaks, km/h, and the width of that peak.
+     *
+     * Very fast bowlers swing it *less*, not more: the ball has less time in the
+     * air to deviate. This is why a 135 km/h swing bowler can be more dangerous
+     * with a new ball than a 148 km/h quick.
+     */
+    val swingPeakKph: Double = 133.0,
+    val swingPaceWidth: Double = 28.0,
+
+    /** Ball-to-ball variation in swing. Without it the batter's model of the world becomes exact. */
+    val swingVariation: Double = 0.25,
+
+    /** Exponent on flight fraction for conventional swing. 2 means it accrues steadily. */
+    val conventionalLateness: Double = 2.0,
+
+    /** Reverse swing: gate centre in overs, gate width, and the roughness it needs. */
+    val reverseGateOvers: Double = 34.0,
+    val reverseGateWidth: Double = 4.0,
+    val reverseRoughnessThreshold: Double = 0.55,
+    val reversePaceThresholdKph: Double = 128.0,
+    val reverseMax: Double = 0.42,
+
+    /** Reverse swing happens very late, which is why it is dangerous at lower deviation. */
+    val reverseLateness: Double = 3.4,
+
+    /** Seam movement off the pitch: scale, and how grass and moisture feed it. */
+    val seamMax: Double = 0.20,
+    val seamGrassExponent: Double = 0.70,
+    val seamMoistureBase: Double = 0.50,
+    val seamMoistureWeight: Double = 0.80,
+
+    /** Probability the seam lands upright, and the penalty when it does not. */
+    val seamUprightBase: Double = 0.45,
+    val seamUprightAccuracyWeight: Double = 0.40,
+    val seamScuffedPenalty: Double = 0.25,
+
+    /** Spin: maximum lateral deviation, and how pitch grip scales it. */
+    val turnMax: Double = 0.55,
+    val gripBase: Double = 0.25,
+    val gripWeight: Double = 0.75,
+
+    /** Drift, and how much dip shortens the effective length, in metres. */
+    val driftMax: Double = 0.35,
+    val dipMaxMetres: Double = 0.60,
+
+    /** Bounce: the pitch factor range, and the variable-bounce noise. */
+    val bounceFactorMin: Double = 0.72,
+    val bounceFactorMax: Double = 1.28,
+    val variableBounceBase: Double = 0.02,
+    val variableBounceCrackWeight: Double = 0.16,
+)
+
+/** Stage 4 — what the batter thinks he sees, and what he plays. */
+data class PerceptionTuning(
+    /**
+     * Base standard deviation of the batter's length estimate, in metres.
+     *
+     * The primary wicket-rate control. Raising it makes batting harder in every
+     * format at once, which is why it answers to the balls-per-wicket bands
+     * (T20 target 16-19) rather than to any single one.
+     */
+    val baseSigmaMetres: Double = 0.32,
+
+    /**
+     * Line estimate as a fraction of the length estimate's error.
+     *
+     * Batters judge line far better than length — a ball's lateral position is
+     * visible for the whole flight, its length only near the end. At 0.42 the
+     * line error came out around 19 cm, which is wider than a bat and meant
+     * nobody could middle anything.
+     */
+    val lineSigmaFraction: Double = 0.26,
+
+    val techniqueWorst: Double = 1.60,
+    val techniqueBest: Double = 0.70,
+    val concentrationWorst: Double = 1.50,
+    val concentrationBest: Double = 1.00,
+
+    /**
+     * Settling: perception error is multiplied by `1 + weight * exp(-balls/scale)`.
+     *
+     * At 0 balls faced that is 1.75x; by 15 balls 1.12x; by 40 essentially 1.0.
+     * This single decaying term produces the brief's "far more vulnerable in his
+     * first 10-15 balls", a dismissal hazard that *falls* through an innings,
+     * and therefore the innings-score distribution Section 3 demands — without
+     * ever sampling from a score distribution.
+     */
+    val settleWeight: Double = 0.75,
+    val settleScaleBalls: Double = 8.0,
+
+    /** Pace discomfort: comfort speed at pacePlay 0 and 100, and how fast it bites above that. */
+    val paceComfortFloorKph: Double = 120.0,
+    val paceComfortRangeKph: Double = 30.0,
+    val paceDiscomfortWeight: Double = 0.90,
+    val paceDiscomfortScaleKph: Double = 40.0,
+
+    /** Bad light. */
+    val lightWeight: Double = 0.35,
+
+    /** How sharply spin-reading skill decides whether a wrong'un is picked. */
+    val wrongUnDetectionSlope: Double = 3.2,
+
+    /** Softmax temperature on shot choice, and how composure and pressure raise it. */
+    val shotTemperature: Double = 0.30,
+    val shotComposureWeight: Double = 0.50,
+    val shotPressureWeight: Double = 0.40,
+
+    /**
+     * Risk appetite terms.
+     *
+     * [baseRisk] is where an unremarkable batter starts before the situation
+     * says anything. Twenty20 is an attacking format from the first ball, and a
+     * base low enough to suit a Test opener produces a 4-an-over T20.
+     */
+    val baseRisk: Double = 0.42,
+    val aggressionRiskWeight: Double = 0.35,
+    val requiredRateWeight: Double = 0.90,
+    val settlednessCaution: Double = 0.35,
+    val newBatterCaution: Double = 0.30,
+)
+
+/** Stage 5 — bat on ball. */
+data class ContactTuning(
+    /**
+     * Base timing error in SECONDS for a timing-50 settled batter under no
+     * pressure.
+     *
+     * Stage 5 multiplies this by the ball's speed to get a length error, so the
+     * units bite hard: 8 ms at 140 km/h is 0.31 m, which is about half a shot's
+     * tolerance. Anything near 50 ms would put the bat a full two metres from
+     * the ball and nobody would ever middle anything.
+     *
+     * It also means timing matters more against pace than against spin without
+     * anything in the code saying so, which is correct.
+     */
+    val timingSigmaSeconds: Double = 0.008,
+    val timingSkillWorst: Double = 1.50,
+    val timingSkillBest: Double = 0.60,
+    val timingPressureWeight: Double = 0.50,
+
+    /**
+     * Half-widths of the reference shot's tolerance ellipsoid, in metres.
+     *
+     * A ball this far from where the batter sent the bat still middles.
+     * Multiplied per shot by its own difficulty and by the batter's technique
+     * and footwork. Raising these lifts strike rate and cuts edges — the
+     * boundary-% control (T20 target 17-20%).
+     */
+    val lengthTolerance: Double = 0.80,
+    val lineTolerance: Double = 0.21,
+    val heightTolerance: Double = 0.30,
+
+    /** How much technique and footwork widen tolerance. */
+    val techniqueWeight: Double = 0.55,
+    val footworkWeight: Double = 0.40,
+
+    /** How far past the tolerance the ball must be before contact is missed entirely. */
+    val missThreshold: Double = 1.86,
+
+    /**
+     * How far the bat can actually be put, laterally, measured at the stumps.
+     *
+     * Asymmetric because a batter's reach is: he can stretch a long way outside
+     * off and barely at all outside leg. Without this cap the bat followed the
+     * ball wherever it went and batters middled deliveries a metre wide of off
+     * — which erased wides, bowled and lbw from the game at once.
+     */
+    val batReachOffSideMetres: Double = 0.86,
+    val batReachLegSideMetres: Double = -0.46,
+
+    /** Highest and lowest the bat can meet the ball, in metres. */
+    val batReachHighMetres: Double = 1.75,
+    val batReachLowMetres: Double = 0.0,
+)
+
+/** Stage 6 — where it goes and what happens. */
+data class OutcomeTuning(
+    /**
+     * Exit speed floor as a fraction of a middled shot, and the bat's full
+     * contribution in m/s.
+     *
+     * A well-middled drive leaves the bat around 38-44 m/s (140-160 km/h), and
+     * clearing a 70 m rope needs roughly 30 m/s at 30 degrees. Set these too low
+     * and nothing reaches the boundary at all — the whole scoring model collapses
+     * into singles.
+     */
+    val mistimedSpeedFloor: Double = 0.30,
+    val batSpeedContribution: Double = 46.0,
+
+    /** Fraction of the incoming pace redirected on a middled shot. */
+    val incomingPaceTransfer: Double = 0.28,
+
+    /** Spread of the exit azimuth, in degrees, at perfect and at zero contact quality. */
+    val azimuthSpreadBest: Double = 9.0,
+    val azimuthSpreadWorst: Double = 46.0,
+
+    /** Drag on a struck ball. Ball mass 0.156 kg, Cd 0.5, cross-section 0.0041 m². */
+    val dragCoefficient: Double = 0.50,
+    val ballMassKg: Double = 0.156,
+    val ballAreaM2: Double = 0.0041,
+    val airDensity: Double = 1.225,
+
+    /**
+     * Catch model, as a logistic in skill and difficulty.
+     *
+     * The intercept sets the rate for a regulation chance to an average pair of
+     * hands; the difficulty weight sets how fast that falls away as he has to
+     * run, dive or take it flat. Calibrated against the 20-25% overall drop rate
+     * and 75-85% slip catching in docs/CALIBRATION.md.
+     */
+    val catchSkillWeight: Double = 4.2,
+    val catchDifficultyWeight: Double = 2.4,
+    val catchPressureWeight: Double = 0.45,
+    val catchIntercept: Double = 3.48,
+
+    /**
+     * How long a fielder takes to pick up a ball off the bat and move.
+     *
+     * Longer than his reaction to a ball already in the air: he has to see it
+     * off the face first. At the old 0.25 s an infielder cut off a straight
+     * drive travelling at 30 m/s, which put the boundary rate on the floor.
+     */
+    val interceptReactionSeconds: Double = 0.38,
+
+    /** Fielder reach in metres, and how fast one closes on the ball. */
+    val fielderReachMetres: Double = 2.1,
+    val fielderSpeedMetresPerSecond: Double = 7.2,
+    val fielderReactionSeconds: Double = 0.25,
+
+    /**
+     * Sideways speed when cutting off a ball hit past you, m/s.
+     *
+     * Much slower than a chase: this is a step-and-dive across the line of a
+     * ball already travelling, not a sprint to the rope. At full sprint speed an
+     * infielder cut off roughly nine metres either side of himself, which
+     * stopped every shot in the game and left the boundary rate near zero.
+     */
+    val interceptSpeedMetresPerSecond: Double = 3.0,
+
+    /**
+     * Closing speed on a ball in the air, m/s.
+     *
+     * Slower than a flat sprint: he has to pick the ball up, turn, and run with
+     * his head back. At full sprint speed a deep fielder covered eighteen metres
+     * under a skier and caught nearly everything hit in the air.
+     */
+    val aerialClosingSpeed: Double = 5.4,
+
+    /** How often a ground fielder fumbles, at groundFielding 50. */
+    val misfieldBase: Double = 0.055,
+
+    /** Running: batter speed range in m/s, and the cost of turning for a second run. */
+    val runSpeedSlowest: Double = 6.6,
+    val runSpeedFastest: Double = 8.6,
+    val turnCostSeconds: Double = 0.55,
+
+    /** Throw speed range, in m/s, from throwArm. */
+    val throwSpeedSlowest: Double = 18.0,
+    val throwSpeedFastest: Double = 31.0,
+
+    /**
+     * Direct-hit probability at throwArm 50, and how far into the red a batter
+     * will run anyway.
+     *
+     * Both deliberately small: run outs are only 4-6% of dismissals, and a
+     * generous risk margin here floods the game with them.
+     */
+    val directHitBase: Double = 0.17,
+    val riskyRunMarginSeconds: Double = 0.12,
+
+    /**
+     * Seconds of margin a batter wants before he sets off without thinking.
+     *
+     * Without it the model took a run whenever one was arithmetically possible,
+     * which turned every push to a close fielder into a single and left the
+     * game with too few dots and too few boundaries at the same time. Real
+     * batters refuse a lot of technically available singles.
+     */
+    val comfortableRunMarginSeconds: Double = 0.74,
+
+    /** Chance a batter takes a tight single anyway, at running judgement 50. */
+    val tightSingleAppetite: Double = 0.49,
+
+    /** LBW: how sharply a clear decision becomes an out, and the umpire's error by level. */
+    val lbwDecisionSlope: Double = 4.0,
+    val umpireErrorBest: Double = 0.05,
+    val umpireErrorWorst: Double = 0.22,
+
+    /**
+     * How often a keeper completes a stumping when the batter is out of his
+     * ground and has missed it.
+     *
+     * Stumpings are only 1-3% of all dismissals, so this is small: most balls
+     * that beat a batter who has come down the pitch are still gathered too late,
+     * or he gets back.
+     */
+    val stumpingCollectionBase: Double = 0.20,
+
+    /** Byes: probability the keeper lets a beaten ball through, at glovework 50. */
+    val byeBase: Double = 0.042,
+)
+
+/** The pressure index, consumed by four stages. */
+data class PressureTuning(
+    val chaseWeight: Double = 0.30,
+    val wicketWeight: Double = 0.28,
+    val dotWeight: Double = 0.18,
+    val phaseWeight: Double = 0.14,
+    val occasionWeight: Double = 0.10,
+
+    /** Logistic shaping of the weighted sum. */
+    val slope: Double = 1.9,
+    val intercept: Double = 0.95,
+
+    /** Balls over which a recent wicket keeps mattering. Two in two is far more than two in fifty. */
+    val wicketClusterScaleBalls: Double = 24.0,
+
+    /** Balls of history in the dot-ball term. */
+    val dotWindowBalls: Int = 12,
+
+    /** Exponent on wickets lost. */
+    val wicketExponent: Double = 1.4,
+)

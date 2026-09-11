@@ -23,6 +23,12 @@ enum class BattingHand(val displayName: String, val short: String) {
  *
  * [typicalPaceKph] is the centre of the pace range for the style, used by the
  * generator and as the default target pace for a stock ball.
+ *
+ * [wristSpin] separates wrist spin from finger spin, which is what actually
+ * decides a spinner's repertoire: a googly belongs to a wrist-spinner and a
+ * doosra or carrom ball to a finger-spinner. Turn direction does not decide it
+ * — a left-arm wrist-spinner turns the ball into a right-hander and still bowls
+ * a googly.
  */
 @Serializable
 enum class BowlingStyle(
@@ -32,6 +38,7 @@ enum class BowlingStyle(
     val rightArm: Boolean,
     val typicalPaceKph: Double,
     val turnsAwayFromRightHander: Boolean?,
+    val wristSpin: Boolean = false,
 ) {
     RIGHT_FAST("Right-arm fast", "RF", BowlingKind.PACE, true, 145.0, null),
     RIGHT_FAST_MEDIUM("Right-arm fast-medium", "RFM", BowlingKind.PACE, true, 134.0, null),
@@ -42,9 +49,9 @@ enum class BowlingStyle(
     LEFT_MEDIUM("Left-arm medium", "LM", BowlingKind.PACE, false, 118.0, null),
 
     OFF_BREAK("Right-arm off break", "OB", BowlingKind.SPIN, true, 86.0, false),
-    LEG_BREAK("Right-arm leg break", "LB", BowlingKind.SPIN, true, 83.0, true),
+    LEG_BREAK("Right-arm leg break", "LB", BowlingKind.SPIN, true, 83.0, true, wristSpin = true),
     SLOW_LEFT_ARM_ORTHODOX("Slow left-arm orthodox", "SLA", BowlingKind.SPIN, false, 85.0, true),
-    SLOW_LEFT_ARM_CHINAMAN("Slow left-arm wrist spin", "SLC", BowlingKind.SPIN, false, 82.0, false),
+    SLOW_LEFT_ARM_CHINAMAN("Slow left-arm wrist spin", "SLC", BowlingKind.SPIN, false, 82.0, false, wristSpin = true),
 
     /** A pure batter or keeper who does not bowl. */
     NONE("Does not bowl", "-", BowlingKind.NONE, true, 0.0, null),
@@ -52,6 +59,7 @@ enum class BowlingStyle(
 
     val isPace: Boolean get() = kind == BowlingKind.PACE
     val isSpin: Boolean get() = kind == BowlingKind.SPIN
+    val isFingerSpin: Boolean get() = isSpin && !wristSpin
     val bowls: Boolean get() = kind != BowlingKind.NONE
 
     companion object {
