@@ -2,6 +2,7 @@ package com.cricketcareer.engine.career
 
 import com.cricketcareer.engine.config.CareerTuning
 import com.cricketcareer.engine.fixtures.Fixtures
+import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Attributes
 import com.cricketcareer.engine.model.player.BowlingStyle
 import com.cricketcareer.engine.model.player.Player
@@ -200,6 +201,29 @@ class SeasonTest {
         val fourDayFatigue = fourDay.map { it.player.state.fatigue }.average()
         assertTrue(fourDayFatigue > t20Fatigue) {
             "four-day $fourDayFatigue should cost more than T20 $t20Fatigue"
+        }
+    }
+
+    @Test
+    fun `a young regular develops over a season and a reserve does not`() {
+        // Exposure has to reach the clock, or nobody in the world ever gets
+        // better by playing and every career is flat.
+        val young = squad().map {
+            it.copy(
+                dateOfBirth = LocalDate.of(2008, 5, 20),
+                hidden = it.hidden.copy(potential = 95, learningRate = 85),
+                attributes = Attributes.uniform(if (it.id.value == "BAT7") 18 else 45),
+            )
+        }
+        val records = play(squad = young, fixtures = fixtures(16))
+        val regular = records.maxBy { it.matches }
+        val reserve = records.minBy { it.matches }
+        assertTrue(regular.matches > reserve.matches) { "the squad was not contested" }
+        assertTrue(regular.exposure.minutes > reserve.exposure.minutes) {
+            "regular ${regular.exposure.minutes} vs reserve ${reserve.exposure.minutes}"
+        }
+        assertTrue(regular.player.attributes[Attribute.TECHNIQUE] > 45) {
+            "a young regular should improve, got ${regular.player.attributes[Attribute.TECHNIQUE]} from 45"
         }
     }
 

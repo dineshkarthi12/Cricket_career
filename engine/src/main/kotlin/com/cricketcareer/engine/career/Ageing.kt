@@ -117,7 +117,7 @@ object Ageing {
             val delta = if (age <= peak && age < tuning.growthStopsAt) {
                 growth(current, ceiling, span, learning, exposure, coaching, tuning)
             } else {
-                -decline(age, peak, tuning)
+                -decline(age, peak, current, tuning)
             }
             val noise = random.nextGaussian() * tuning.yearlyNoiseSigma
             (current + delta + noise).roundToInt().coerceIn(Attributes.MIN, Attributes.MAX)
@@ -149,16 +149,23 @@ object Ageing {
     }
 
     /**
-     * Quadratic in years past peak, normalised so that ten years past peak
-     * costs [AgeingTuning.declinePerYearAtTenPastPeak]. The first two years
-     * past peak therefore cost almost nothing and the tenth is brutal, which is
-     * the shape of a real decline: nobody notices a 31-year-old slowing down
-     * and everybody notices a 37-year-old.
+     * Quadratic in years past peak, so the first two years past peak cost
+     * almost nothing and the tenth is brutal — nobody notices a 31-year-old
+     * slowing down and everybody notices a 37-year-old.
+     *
+     * Scaled by what the player has left to lose. Absolute decline takes the
+     * same points off a 90 and a 20, which over a long career wipes out
+     * anything that did not start high: a bowler with power 26 at 26 reaches
+     * the floor by 39, having lost a hundred per cent of an attribute the same
+     * way a great player loses a third of his. You do not lose what you never
+     * had.
      */
-    private fun decline(age: Int, peak: Double, tuning: AgeingTuning): Double {
+    private fun decline(age: Int, peak: Double, current: Int, tuning: AgeingTuning): Double {
         val past = age - peak
         if (past <= 0.0) return 0.0
-        return tuning.declinePerYearAtTenPastPeak * (past * past) / 100.0
+        val headroomToLose = (current - Attributes.MIN).toDouble() /
+            (tuning.declineReferenceRating - Attributes.MIN)
+        return tuning.declinePerYearAtTenPastPeak * (past * past) / 100.0 * headroomToLose
     }
 
     /**

@@ -82,13 +82,28 @@ data class AgeingTuning(
     val headroomExponent: Double = 0.5,
 
     /**
-     * Points per year lost at the steepest part of the decline, ten years past
-     * the class peak. Decline is quadratic in years-past-peak rather than
-     * linear, so the first two years past peak cost almost nothing and the
-     * tenth costs a great deal. A linear decline makes every player fade at the
-     * same dull rate.
+     * Points per year lost ten years past the class peak, by a player rated
+     * [declineReferenceRating] in that attribute.
+     *
+     * Quadratic in years past peak rather than linear, so the first two years
+     * past peak cost almost nothing and the tenth costs a great deal. Nobody
+     * notices a 31-year-old slowing down and everybody notices a 37-year-old;
+     * a linear decline makes every player fade at the same dull rate.
      */
     val declinePerYearAtTenPastPeak: Double = 3.4,
+
+    /**
+     * The rating at which [declinePerYearAtTenPastPeak] is the literal figure.
+     * Decline scales with how much a player has to lose, so a 90-rated
+     * attribute sheds more points a year than a 20-rated one and both shed a
+     * similar *fraction*.
+     *
+     * Absolute decline was the first thing a printed career exposed: a bowler
+     * whose power started at 26 was at 1 by 39, because thirteen years of a
+     * flat five points a year wipes out anything that did not start high. You
+     * do not lose what you never had.
+     */
+    val declineReferenceRating: Double = 50.0,
 
     /**
      * How far above hidden potential an attribute may be pushed by playing

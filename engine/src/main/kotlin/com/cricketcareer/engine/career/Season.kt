@@ -54,6 +54,18 @@ data class SeasonRecord(
      * outstanding injuries would report it as the *safer* schedule.
      */
     val injuries: Int = 0,
+
+    /**
+     * What this season was worth to his development, to be handed to the next
+     * one.
+     *
+     * Threaded by the caller in the same way training's fractional carry is,
+     * and for a related reason: ageing lands on a birthday, which can fall in
+     * the middle of a season or in the gap between two, so the clock needs a
+     * view of how much cricket a player has been getting that does not depend
+     * on where the calendar happens to break.
+     */
+    val exposure: SeasonExposure = SeasonExposure.NONE,
 ) {
     val matches: Int get() = appearances.size
     val runs: Int get() = appearances.sumOf { it.runs }
@@ -103,14 +115,17 @@ class Season(private val tuning: CareerTuning = CareerTuning.DEFAULT) {
         personality: SelectorPersonality,
         coaching: Double,
         random: CareerRandom,
+        previousExposure: Map<PlayerId, SeasonExposure> = emptyMap(),
     ): List<SeasonRecord> {
         require(!end.isBefore(start)) { "season ends before it starts: $start to $end" }
+        require(coaching in 0.0..1.0) { "coaching $coaching must be in 0..1" }
         val ordered = fixtures.sortedWith(compareBy<Fixture> { it.date }.thenBy { it.id })
         require(ordered.none { it.date < start || it.date > end }) {
             "a fixture falls outside the season $start..$end"
         }
 
         var players = squad
+        var fixturesSoFar = 0
         val appearances = LinkedHashMap<PlayerId, MutableList<Appearance>>()
         val omissions = LinkedHashMap<PlayerId, Int>()
         val injuries = LinkedHashMap<PlayerId, Int>()
@@ -119,8 +134,23 @@ class Season(private val tuning: CareerTuning = CareerTuning.DEFAULT) {
 
         for (fixture in ordered) {
             // The days between matches: rehab, recovery, rustiness, birthdays.
-            players = clock.advance(players, date, fixture.date, random = random.stream(CareerStreams.AGEING))
+            // Exposure is the share of the season's cricket he has had so far,
+            // falling back to last season before he has had any this one -
+            // without it every birthday sees a player who has never played and
+            // nobody in the world ever develops.
+            val exposureNow = players.associate { player ->
+                player.id to exposureFor(
+                    appearances[player.id]?.size ?: 0,
+                    fixturesSoFar,
+                    previousExposure[player.id],
+                    coaching,
+                )
+            }
+            players = clock.advance(
+                players, date, fixture.date, exposureNow, random.stream(CareerStreams.AGEING),
+            )
             date = fixture.date
+            fixturesSoFar++
 
             val available = players.filter { it.state.isAvailable }
             if (available.size < XI) {
@@ -161,10 +191,21 @@ class Season(private val tuning: CareerTuning = CareerTuning.DEFAULT) {
             }
         }
 
+        val finalExposure = players.associate { player ->
+            player.id to exposureFor(
+                appearances[player.id]?.size ?: 0,
+                fixturesSoFar,
+                previousExposure[player.id],
+                coaching,
+            )
+        }
+
         // Run the clock out to the end of the season, so an injury picked up in
         // the last match heals over the off-season rather than at the start of
         // the next one.
-        players = clock.advance(players, date, end, random = random.stream(CareerStreams.AGEING))
+        players = clock.advance(
+            players, date, end, finalExposure, random.stream(CareerStreams.AGEING),
+        )
 
         return players.map { player ->
             SeasonRecord(
@@ -172,8 +213,31 @@ class Season(private val tuning: CareerTuning = CareerTuning.DEFAULT) {
                 appearances = appearances[player.id].orEmpty().toList(),
                 omissions = omissions[player.id] ?: 0,
                 injuries = injuries[player.id] ?: 0,
+                exposure = finalExposure.getValue(player.id),
             )
         }
+    }
+
+    /**
+     * Share of the available cricket a player has had.
+     *
+     * Before a ball is bowled in a season the honest answer is last season's,
+     * because that is genuinely what his recent cricket has been. Before his
+     * first season there is no answer at all, and [SeasonExposure.NONE] is
+     * right: a player who has never played has not developed by playing.
+     */
+    private fun exposureFor(
+        played: Int,
+        fixturesSoFar: Int,
+        previous: SeasonExposure?,
+        coaching: Double,
+    ): SeasonExposure = when {
+        fixturesSoFar > 0 -> SeasonExposure(
+            minutes = (played.toDouble() / fixturesSoFar).coerceIn(0.0, 1.0),
+            coaching = coaching,
+        )
+        previous != null -> previous.copy(coaching = coaching)
+        else -> SeasonExposure(minutes = 0.0, coaching = coaching)
     }
 
     /**

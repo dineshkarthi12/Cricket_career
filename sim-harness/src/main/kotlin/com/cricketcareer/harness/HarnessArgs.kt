@@ -10,7 +10,8 @@ package com.cricketcareer.harness
  *   --format=T20|LIST_A|FIRST_CLASS|TEST   what to simulate
  *   --matches=5000                          sample size
  *   --seed=1                                first seed; match n uses seed+n
- *   --report=calibration|scorecard|players|none   what to print
+ *   --report=calibration|scorecard|players|career|none   what to print
+ *                                           (career reads --matches as seasons)
  *   --threads=8                             worker threads (default: all cores)
  */
 data class HarnessArgs(
@@ -22,7 +23,7 @@ data class HarnessArgs(
 ) {
     companion object {
         val KNOWN_FORMATS = listOf("T20", "LIST_A", "FIRST_CLASS", "TEST")
-        val KNOWN_REPORTS = listOf("calibration", "scorecard", "players", "export", "none")
+        val KNOWN_REPORTS = listOf("calibration", "scorecard", "players", "export", "career", "none")
 
         fun parse(args: Array<String>): HarnessArgs {
             val values = LinkedHashMap<String, String>()
