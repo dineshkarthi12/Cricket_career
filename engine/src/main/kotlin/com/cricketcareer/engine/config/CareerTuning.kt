@@ -15,6 +15,7 @@ data class CareerTuning(
     val fatigue: FatigueTuning = FatigueTuning(),
     val injury: InjuryTuning = InjuryTuning(),
     val training: TrainingTuning = TrainingTuning(),
+    val selection: SelectionTuning = SelectionTuning(),
 ) {
     companion object {
         /** The calibration reference. Every career test measures against this. */
@@ -341,4 +342,57 @@ data class TrainingTuning(
 
     /** Standard deviation of the noise on a week's gain, in attribute points. */
     val weeklyNoiseSigma: Double = 0.12,
+)
+
+/**
+ * How a selection panel makes up its mind.
+ *
+ * Weights here are the *average* panel. An individual selector's personality
+ * shifts them, which is what makes a career feel like something happening to
+ * the player rather than a scoreboard he controls.
+ */
+data class SelectionTuning(
+    /** Weight on raw ability for the format. The largest term, and it should be. */
+    val weightStandard: Double = 1.00,
+
+    /**
+     * Weight on recent form. Substantial but well under ability, because a
+     * panel that picks on form alone churns the side every week and never
+     * builds anything.
+     */
+    val weightForm: Double = 0.34,
+
+    /** Weight on suitability for these conditions: a second spinner on a turner. */
+    val weightSuitability: Double = 0.22,
+
+    /**
+     * Weight on reputation, which is what an incumbent has and a challenger
+     * does not. Non-zero so that a player is not dropped for one failure, and
+     * so a young player must be clearly better rather than marginally better
+     * to displace someone. This is the term that makes a debut feel earned.
+     */
+    val weightReputation: Double = 0.28,
+
+    /** Weight subtracted for fitness doubt and a lack of match sharpness. */
+    val weightRisk: Double = 0.45,
+
+    /**
+     * Standard deviation of the panel's judgement noise, on the same scale as
+     * the score. The difference between a selection meeting and a spreadsheet:
+     * two selectors looking at the same numbers do not always agree, and the
+     * player on the wrong end of that is having a career, not a calculation.
+     */
+    val judgementSigma: Double = 0.06,
+
+    /** Minimum genuine bowling options in an XI. Below this the side cannot bowl its overs. */
+    val minimumBowlers: Int = 4,
+
+    /** Minimum specialist batters, keeper included. */
+    val minimumBatters: Int = 6,
+
+    /** How far a player short of match sharpness is marked down, at sharpness 0. */
+    val sharpnessPenalty: Double = 0.5,
+
+    /** How far a carried niggle is marked down. A player is pickable with one; he is not free. */
+    val nigglePenalty: Double = 0.35,
 )
