@@ -32,6 +32,7 @@ fun main(args: Array<String>) {
         "players" -> PlayerReport.run(parsed)
         "career" -> CareerReport.run(parsed, System.getenv("CRICKET_SEED_DIR") ?: "seed")
         "seed" -> SeedGenerator.run(parsed, System.getenv("CRICKET_SEED_DIR") ?: "seed")
+        "dls" -> DlsFit.run(parsed)
         "calibration" -> CalibrationReport.run(parsed)
         "scorecard" -> ScorecardReport.run(parsed)
         "export" -> InningsExport.run(parsed, System.getenv("CRICKET_EXPORT") ?: "innings.json")

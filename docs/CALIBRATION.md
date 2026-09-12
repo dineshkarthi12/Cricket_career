@@ -327,6 +327,56 @@ These are the numbers `WorldTuning` is fitted to. **Re-measure whenever the
 match engine's calibration moves** — a divergence between the tiers is a bug,
 not a preference. `WorldSimTest` will fail first.
 
+### The DLS resource table, fitted 2026-09-12
+
+`DlsTuning` is measured from this engine, not borrowed from real cricket. A
+table taken from one-day cricket as it is actually played would settle matches
+in this game by a scoring rate this game does not have, and every rain-affected
+result would be quietly wrong in a direction nobody could see. Same rule as
+`WorldTuning`.
+
+```
+./gradlew :sim-harness:run --args="--report=dls --matches=4000 --seed=77"
+```
+
+The fit records, for every legal ball of every sampled fifty-over innings, the
+state before it (overs left, wickets down) and the runs the side went on to add.
+That conditional expectation *is* the resource curve; the model's content is
+that it has the shape `A(w)·(1 − exp(−b(w)·u))`.
+
+Measured resources remaining, as a percentage of a full innings:
+
+| Overs left | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 50 | 100.0 | 95.6 | 89.9 | 84.7 | 78.0 | 66.8 | 58.1 | 38.6 | 25.8 | 14.6 |
+| 30 | 73.4 | 70.1 | 66.9 | 63.6 | 60.1 | 54.0 | 48.8 | 35.6 | 24.8 | 14.4 |
+| 25 | 64.5 | 61.6 | 59.0 | 56.3 | 53.6 | 48.8 | 44.7 | 33.8 | 24.1 | 14.1 |
+| 20 | 54.5 | 52.1 | 50.0 | 47.8 | 46.0 | 42.6 | 39.5 | 31.1 | 22.8 | 13.6 |
+| 10 | 30.5 | 29.1 | 28.2 | 27.2 | 26.6 | 25.5 | 24.5 | 21.4 | 17.0 | 10.7 |
+
+A full fifty-over innings averages **283.6**.
+
+Two things to know about reading it:
+
+- **The cells that matter agree closely with real one-day cricket.** 25 overs
+  left with two down comes out at 59.0% here against about 58.9% by the real
+  method, and 10 overs with five down at 25.5% against about 26.1%. That is a
+  check on the *engine*, not on the arithmetic: it says this simulation scores
+  like the sport.
+- **The top-right corner is extrapolation.** A side cannot be five down with
+  fifty overs left, so no observation stands behind those cells and the numbers
+  there are the fitted curve talking to itself. Nothing reads them.
+
+The fit is constrained so that the table stays monotone in three directions at
+once: resources rise with overs, fall with wickets, and the product `A·b` —
+the run rate off the first remaining ball — falls with wickets. The third is
+the one that is easy to miss and the one that matters most: if it rose, then at
+short overs a wicket would be worth *having*.
+
+`DlsCalibrationTest` re-measures a smaller sample and fails when the table
+drifts from the engine, with tolerances stated in standard errors of the
+measured mean.
+
 ### Career-shape bands
 
 Not sampling bands, but assertions about what a career should look like. All
@@ -345,6 +395,9 @@ are enforced by tests rather than checked by eye.
 | Reduced innings strike rates vary by more than 15% about their mean | `WorldSimTest` |
 | A range hitter strikes at least 25% faster than a blocker | `WorldSimTest` |
 | Regulars in a simulated season average between 3 and 120 | `SeasonTest` |
+| Losing a wicket costs resource at every point of the DLS table | `DuckworthLewisTest` |
+| A side nine down loses under a fifth of what an opening pair loses to the same rain | `DuckworthLewisTest` |
+| The resource table predicts engine scoring within 4 s.e. + 6 runs | `DlsCalibrationTest` |
 
 ### Tempo, added 2026-09-12
 

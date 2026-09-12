@@ -27,10 +27,14 @@ data class EngineTuning(
     val pressure: PressureTuning = PressureTuning(),
     val pitch: PitchTuning = PitchTuning(),
     val formatIntent: FormatIntentTuning = FormatIntentTuning(),
+    val dls: DlsTuning = DlsTuning(),
     val knobs: CalibrationKnobs = CalibrationKnobs(),
 ) {
     companion object {
-        val DEFAULT: EngineTuning = EngineTuning()
+        // Lazy for the same reason DlsTuning.DEFAULT is: a sub-tuning whose
+        // own defaults fail validation must not make the engine unloadable
+        // before the tool that repairs them can run.
+        val DEFAULT: EngineTuning by lazy { EngineTuning() }
     }
 }
 
