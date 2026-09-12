@@ -44,7 +44,7 @@ data class Competition(
     /** Country id, or the empty string for a competition open to several. */
     val country: String,
     val level: LadderLevel,
-    /** `MatchFormat.id` — "T20", "LIST_A", "FC4", "TEST". */
+    /** `MatchFormat.id` — "T20", "OD50", "FC4", "TEST". */
     val format: String,
     val structure: CompetitionStructure,
     val teams: List<String>,

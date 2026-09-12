@@ -220,7 +220,30 @@ options, and a top six. The scorer proposes, the balance check disposes.
 
 ---
 
-## 9. The world simulation
+## 9. Fixtures
+
+A season is not a number of matches, it is a list of them, and where they fall
+is what a career feels like. `FixtureList` builds that list from the seed
+database — see `docs/SEED_DATABASE.md` for the structures and the international
+rotation.
+
+What matters here is what it hands the rest of this document:
+
+- **A date.** Fatigue and injury are charged per day, so a congested run of
+  matches costs more than the same matches spread out. Overlapping
+  competitions are pushed apart rather than stacked, which turns a crowded
+  calendar into a longer, tighter season instead of an impossible one.
+- **A level.** Growth comes from playing above your standard (§3), so which
+  rung a fixture is on decides what it is worth.
+- **An opposition standard**, from the best eleven of the opposing squad — a
+  side with two stars and sixteen journeymen fields the two stars.
+- **A pitch**, drawn from the host ground's archetype weights. A player who
+  spends a career on rank turners develops differently from one who does not,
+  and no code anywhere grants a home side anything.
+
+---
+
+## 10. The world simulation
 
 Three tiers, as decided in `docs/OPEN_QUESTIONS.md` Q1:
 
@@ -238,7 +261,7 @@ user's own.
 
 ---
 
-## 10. Determinism
+## 11. Determinism
 
 Career streams are derived from the **career seed** the same way match streams
 are derived from a match seed:

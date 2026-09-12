@@ -18,6 +18,17 @@ data class Fixture(
     val pitch: Pitch = Pitch.AVERAGE,
     /** Standard of the opposition, in [0, 1]. */
     val oppositionStandard: Double = 0.5,
+    /** Team id of the opposition, or blank in a test that does not model one. */
+    val opponent: String = "",
+    /**
+     * Whether this is a home match.
+     *
+     * Nothing in the engine grants a home side anything. It is here because a
+     * fixture list a player reads has to say where he is playing, and because
+     * the pitch above was drawn from the *host's* ground — which is the only
+     * form of home advantage this project has.
+     */
+    val atHome: Boolean = true,
 ) {
     init {
         require(id.isNotBlank()) { "fixture id must not be blank" }

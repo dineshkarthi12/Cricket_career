@@ -1,6 +1,8 @@
 package com.cricketcareer.harness
 
+import com.cricketcareer.engine.career.FixtureList
 import com.cricketcareer.engine.model.world.LadderLevel
+import com.cricketcareer.engine.rng.SimRandom
 import com.cricketcareer.engine.seed.SeedDatabase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -95,6 +97,68 @@ class SeedFileTest {
         }
     }
 
+    // ---- the world as a career actually meets it ---------------------------
+
+    @Test
+    fun `every team in the shipped database gets a season`() {
+        // A team on the ladder with no fixtures is a dead end: a career that
+        // reaches it stops, and nothing else in the project would say why.
+        database.teams.forEach { team ->
+            val season = FixtureList.seasonFor(team.id, SEASON, database, SimRandom.fromSeed(SEED))
+            assertTrue(season.isNotEmpty()) { "team '${team.id}' (${team.level}) has no fixtures" }
+            assertEquals(season.size, season.map { it.id }.distinct().size) { "'${team.id}' has duplicate fixture ids" }
+            assertEquals(season.size, season.map { it.date }.distinct().size) { "'${team.id}' plays twice in a day" }
+            assertTrue(season.none { it.opponent == team.id }) { "'${team.id}' is playing itself" }
+        }
+    }
+
+    @Test
+    fun `a state season is the shape a state season should be`() {
+        // A state association fields two sides: a red-ball one and a white-ball
+        // one, with different squads. That is why a player can be a fixture in
+        // the Ranji side and never get a white-ball game.
+        val redBall = FixtureList.seasonFor("IND-MAHARASHTRA", SEASON, database, SimRandom.fromSeed(SEED))
+        val whiteBall = FixtureList.seasonFor("IND-MAHARASHTRA-WB", SEASON, database, SimRandom.fromSeed(SEED))
+
+        // Twenty-four sides in two groups of twelve: eleven group matches each.
+        assertEquals(11, redBall.size)
+        assertEquals(11, whiteBall.size)
+        assertEquals(setOf("FC4"), redBall.map { it.format.id }.toSet())
+        assertEquals(setOf("T20"), whiteBall.map { it.format.id }.toSet())
+        listOf(redBall, whiteBall).forEach { season ->
+            assertTrue(season.any { it.atHome } && season.any { !it.atHome }) { "all played at one end" }
+        }
+    }
+
+    @Test
+    fun `an international season spans all three formats`() {
+        val season = FixtureList.seasonFor("IND-INTL", SEASON, database, SimRandom.fromSeed(SEED))
+
+        assertEquals(setOf("T20", "OD50", "TEST"), season.map { it.format.id }.toSet())
+        assertTrue(season.all { it.level == LadderLevel.INTERNATIONAL })
+        // Nine matches a format: three series of three, from the rotation.
+        assertEquals(27, season.size)
+    }
+
+    @Test
+    fun `the opposition is never a placeholder`() {
+        // A blank opponent means the rotation handed out a bye and it leaked
+        // into a fixture, which would simulate a match against nobody.
+        database.teams.forEach { team ->
+            FixtureList.seasonFor(team.id, SEASON, database, SimRandom.fromSeed(SEED)).forEach { fixture ->
+                assertTrue(fixture.opponent.isNotBlank()) { "'${team.id}' has a fixture against nobody" }
+                assertTrue(fixture.opponent in database.teamsById) { "unknown opponent '${fixture.opponent}'" }
+            }
+        }
+    }
+
+    @Test
+    fun `the shipped world produces the same fixtures every time`() {
+        val once = FixtureList.seasonFor("IND-T20-CHENNAI", SEASON, database, SimRandom.fromSeed(SEED))
+        val twice = FixtureList.seasonFor("IND-T20-CHENNAI", SEASON, database, SimRandom.fromSeed(SEED))
+        assertEquals(once, twice)
+    }
+
     @Test
     fun `the structure file is small enough for a person to open`() {
         // The roster is generated and nobody hand-edits three thousand
@@ -102,5 +166,11 @@ class SeedFileTest {
         // and it stops being editable somewhere around a megabyte.
         val world = File(seedDirectory, "world.json")
         assertTrue(world.length() < 1_000_000) { "world.json is ${world.length() / 1024} KB" }
+    }
+
+    private companion object {
+        /** Any season; the world is not year-dependent beyond the rotation. */
+        const val SEASON = 2026
+        const val SEED = 77L
     }
 }

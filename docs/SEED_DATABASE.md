@@ -117,6 +117,41 @@ what `Season` in the career layer consumes.
 }
 ```
 
+#### From a competition to a fixture list
+
+`FixtureList` turns a competition into the matches one team actually plays.
+This is the join between the world and the career: a competition says *who is
+in a tournament*, a `Fixture` is *a match on a date at a ground*, and `Season`
+consumes fixtures.
+
+| Structure | What a team plays |
+|---|---|
+| `SINGLE_ROUND_ROBIN` | Everyone else, once, alternating home and away |
+| `DOUBLE_ROUND_ROBIN` | Everyone else twice, once at each ground |
+| `GROUPS_THEN_KNOCKOUT` | Its own group only — two balanced halves of the team list |
+| `KNOCKOUT` | One guaranteed match; the rest is earned, not pencilled in |
+| `BILATERAL_SERIES` | Three matches against one side, all at the host's grounds |
+
+A `BILATERAL_SERIES` with more than two teams is a **calendar** of series
+rather than one fixed pairing — which is what an international season is.
+Each year every side plays three series, drawn by the round-robin circle
+method with the season as the offset, so opponents rotate, everyone gets the
+same amount of cricket, and a full cycle plays everyone. Who hosts is decided
+by position in the team list and flipped each time the rotation comes round,
+so no side hosts the same tour forever. Both nations generate the identical
+fixture from their own end.
+
+Two rules hold across a whole season, not just within one competition:
+
+- **Nobody is in two places at once.** Fixtures that overlap — a franchise
+  league landing on top of a first-class season, or a Test that is still in
+  progress — are pushed apart, even past a competition's nominal window. A real
+  board does the same, and the fatigue and injury models charge the player for
+  the result.
+- **The pitch comes from the host's ground**, drawn from that venue's own
+  archetype weights. This is the only home advantage in the project; there is
+  no home bonus term anywhere.
+
 ### Players
 Generated rather than hand-written — four thousand cricketers is not something
 anyone types — but written out as a real file so it can be edited like any
