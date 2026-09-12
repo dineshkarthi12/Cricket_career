@@ -258,7 +258,7 @@ tests, wait for approval.
 | 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |
 | 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
 | 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` done and tested; `:app` written but never compiled** |
-| 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | Not started |
+| 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | **In progress — editable seed database, fixtures, ladder and progression done; save/load, difficulty, records and retirement outstanding** |
 | 8 | Performance, battery, APK size, accessibility, polish | Not started |
 
 ---
