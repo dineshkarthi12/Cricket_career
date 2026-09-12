@@ -69,7 +69,14 @@ emulator.
 format text; decide ordering and grouping; decide what is emphasised.
 
 **May not:** simulate anything; hold Android types; read a clock; do I/O; know
-that `:data` exists. Where a value came from is not a presentation concern — a
+that `:data` exists.
+
+**One documented exception**, `presentation/demo/DemoMatch.kt`: it runs the
+match simulator, because something has to hand the UI a match before `:data`
+can load one and the only other candidate is `:app` — the one module that must
+never decide anything about cricket. Of two wrong homes it is the less wrong,
+it is the single place in the module that touches the simulator, and it goes
+when `:data` arrives in Phase 7. Where a value came from is not a presentation concern — a
 match centre renders a `MatchState` identically whether it came from a live
 simulation or a save file.
 

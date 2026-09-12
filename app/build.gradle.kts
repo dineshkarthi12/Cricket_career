@@ -63,6 +63,8 @@ dependencies {
     implementation(project(":presentation"))
 
     implementation(libs.androidx.core.ktx)
+    // LaunchedEffect's delay, for the ball-by-ball playback.
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
