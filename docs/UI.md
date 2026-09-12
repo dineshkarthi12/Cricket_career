@@ -124,6 +124,30 @@ Taken from the screen direction board, in the order a career meets them.
 
 ---
 
+### The four screens added with Phases 3–5
+
+| Screen | State | What it has to explain |
+|---|---|---|
+| Review | `ReviewState` | All three lbw questions, always, in the order a big screen shows them, with the one that made it umpire's call picked out. Showing only the leg that failed leaves a viewer who has seen it on television wondering about the other two. |
+| Rain | `RainState` | Why the target is a number that is not the opposition's score plus one. "Seven overs lost, target revised to 292" is the whole story, and a scoreboard without it looks broken. |
+| Training | `TrainingState` | What a plan is worth over a *block* of weeks, and where the ceiling is. One week moves an attribute by a fifth of a point, which on a screen looks like nothing happening. |
+| Selection | `SelectionState` | Why he is or is not in the side, in the panel's own weighted terms. A player is never told "not selected" and left to guess. |
+
+Two things these share, and both are load-bearing:
+
+- **They re-decide nothing.** The selection screen shows the same
+  `Selection.score` the panel ran and the training screen calls the same
+  `TrainingModel.project` the model runs. A screen with its own copy of the
+  arithmetic eventually disagrees with the save file, and the disagreement is
+  invisible.
+- **They show the comparison, not the raw number.** A batter's suitability
+  carries his ability in it, so showing it against a flat 0.5 labelled every
+  good player as suited to every surface — the conditions line became a second,
+  quieter ability line. It is measured against the other candidates for that
+  match instead.
+
+---
+
 ## 5. The batting screen, and what replaces it
 
 Decided in `docs/OPEN_QUESTIONS.md` Q3 and confirmed by the project owner: the
