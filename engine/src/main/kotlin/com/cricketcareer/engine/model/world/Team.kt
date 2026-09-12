@@ -113,6 +113,16 @@ data class Region(
     val name: String,
     /** Relative share of the country's players who come from here. */
     val playerShare: Double = 1.0,
+    /**
+     * The zonal side this region feeds, or blank where there is no zonal rung.
+     *
+     * Structural rather than derivable. A zonal squad is eighteen players drawn
+     * from four or five states, so reading zone membership off this year's
+     * squad would leave a state with nobody in it unmapped — and a state whose
+     * best young player has nowhere to be picked is a career that stops for a
+     * reason nothing in the project could explain.
+     */
+    val zone: String = "",
 ) {
     init {
         require(id.isNotBlank()) { "region id must not be blank" }

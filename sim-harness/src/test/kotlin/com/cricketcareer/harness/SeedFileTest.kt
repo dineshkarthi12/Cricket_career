@@ -1,6 +1,7 @@
 package com.cricketcareer.harness
 
 import com.cricketcareer.engine.career.FixtureList
+import com.cricketcareer.engine.career.Ladder
 import com.cricketcareer.engine.model.world.LadderLevel
 import com.cricketcareer.engine.rng.SimRandom
 import com.cricketcareer.engine.seed.SeedDatabase
@@ -157,6 +158,70 @@ class SeedFileTest {
         val once = FixtureList.seasonFor("IND-T20-CHENNAI", SEASON, database, SimRandom.fromSeed(SEED))
         val twice = FixtureList.seasonFor("IND-T20-CHENNAI", SEASON, database, SimRandom.fromSeed(SEED))
         assertEquals(once, twice)
+    }
+
+    // ---- the ladder a player can actually climb ---------------------------
+
+    @Test
+    fun `every zone a region feeds is a side that exists`() {
+        val zones = database.teamsAt(LadderLevel.ZONAL).map { it.id }.toSet()
+        database.countries.flatMap { it.regions }
+            .filter { it.zone.isNotBlank() }
+            .forEach { region ->
+                assertTrue(region.zone in zones) { "region '${region.id}' feeds '${region.zone}', which is not a side" }
+            }
+    }
+
+    @Test
+    fun `every cricketer in the world can see the top of his own ladder`() {
+        // A player with no route to an international cap is a career that
+        // cannot be played, and the only thing that would report it is this.
+        database.players.forEach { player ->
+            val rungs = Ladder.forPlayer(player, database)
+            assertTrue(rungs.isNotEmpty()) { "'${player.id}' (${player.region}) is eligible for nothing" }
+            assertEquals(LadderLevel.INTERNATIONAL, rungs.last().level) {
+                "'${player.id}' (${player.region}) tops out at ${rungs.last().level}"
+            }
+        }
+    }
+
+    @Test
+    fun `a home-country cricketer climbs the full pyramid`() {
+        val player = database.players.first { it.region == "Maharashtra" }
+
+        assertEquals(
+            listOf(
+                LadderLevel.DISTRICT_CLUB,
+                LadderLevel.STATE_FIRST_CLASS,
+                LadderLevel.STATE_WHITE_BALL,
+                LadderLevel.ZONAL,
+                LadderLevel.FRANCHISE_T20,
+                LadderLevel.INTERNATIONAL,
+            ),
+            Ladder.forPlayer(player, database).map { it.level },
+        )
+        assertEquals("IND-ZONE-WEST", Ladder.zoneOf(player, database))
+    }
+
+    @Test
+    fun `a cricketer from a country modelled at international level only has one rung`() {
+        val australian = database.players.first { it.country == "AUS" }
+        val rungs = Ladder.forPlayer(australian, database)
+
+        assertEquals(listOf(LadderLevel.INTERNATIONAL), rungs.map { it.level })
+        assertEquals(listOf("AUS-INTL"), rungs.single().teams.map { it.id })
+    }
+
+    @Test
+    fun `every rung a cricketer can reach has cricket on it`() {
+        val player = database.players.first { it.region == "Maharashtra" }
+
+        Ladder.forPlayer(player, database).forEach { rung ->
+            val playable = rung.teams.filter { team ->
+                FixtureList.seasonFor(team.id, SEASON, database, SimRandom.fromSeed(SEED)).isNotEmpty()
+            }
+            assertEquals(rung.teams.size, playable.size) { "${rung.level} has sides with no fixtures" }
+        }
     }
 
     @Test

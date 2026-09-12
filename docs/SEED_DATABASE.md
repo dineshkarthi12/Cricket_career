@@ -81,12 +81,21 @@ season and a zonal cap are different things — and it is usually where the
 national selectors are actually watching.
 
 Other countries exist at international level only —
-their domestic cricket is tier 3 in `docs/CAREER_MODEL.md` §9 and nobody will
+their domestic cricket is tier 3 in `docs/CAREER_MODEL.md` §11 and nobody will
 ever read a ball of it.
 
 A region carries a `playerShare`: how much of the country's talent comes from
 there. It is why some states are harder to break into than others, and it is
 one number rather than a rule.
+
+It also carries a `zone`: the id of the zonal side it feeds, blank where there
+is none. That link is structural and belongs in the file rather than being
+derived from this year's zonal squad — a squad is fifteen players drawn from
+four or five states, so a state with nobody in it would be left unmapped, and a
+state whose best young player has nowhere to be picked is a career that stops
+for a reason nothing in the project could explain. `Ladder` in the career layer
+is the only thing that reads it, and it is the whole of what that object knows
+about zones.
 
 ### Venues
 A ground is a boundary shape, a soil type, a set of pitch archetype weights, an

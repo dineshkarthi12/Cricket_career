@@ -518,7 +518,7 @@ data class ContractTuning(
  * statistics in another country stay comparable with the user's own — which is
  * the whole point of simulating the rest of the world at all.
  *
- * See docs/CAREER_MODEL.md §9.
+ * See docs/CAREER_MODEL.md §11.
  */
 data class WorldTuning(
     /**

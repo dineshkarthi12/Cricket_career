@@ -6,99 +6,123 @@
             "regions": [
                 {
                     "id": "Maharashtra",
-                    "name": "Maharashtra"
+                    "name": "Maharashtra",
+                    "zone": "IND-ZONE-WEST"
                 },
                 {
                     "id": "Mumbai",
-                    "name": "Mumbai"
+                    "name": "Mumbai",
+                    "zone": "IND-ZONE-WEST"
                 },
                 {
                     "id": "Gujarat",
-                    "name": "Gujarat"
+                    "name": "Gujarat",
+                    "zone": "IND-ZONE-WEST"
                 },
                 {
                     "id": "Saurashtra",
-                    "name": "Saurashtra"
+                    "name": "Saurashtra",
+                    "zone": "IND-ZONE-WEST"
                 },
                 {
                     "id": "Tamil Nadu",
-                    "name": "Tamil Nadu"
+                    "name": "Tamil Nadu",
+                    "zone": "IND-ZONE-SOUTH"
                 },
                 {
                     "id": "Karnataka",
-                    "name": "Karnataka"
+                    "name": "Karnataka",
+                    "zone": "IND-ZONE-SOUTH"
                 },
                 {
                     "id": "Kerala",
-                    "name": "Kerala"
+                    "name": "Kerala",
+                    "zone": "IND-ZONE-SOUTH"
                 },
                 {
                     "id": "Hyderabad",
-                    "name": "Hyderabad"
+                    "name": "Hyderabad",
+                    "zone": "IND-ZONE-SOUTH"
                 },
                 {
                     "id": "Andhra",
-                    "name": "Andhra"
+                    "name": "Andhra",
+                    "zone": "IND-ZONE-SOUTH"
                 },
                 {
                     "id": "Delhi",
-                    "name": "Delhi"
+                    "name": "Delhi",
+                    "zone": "IND-ZONE-NORTH"
                 },
                 {
                     "id": "Punjab",
-                    "name": "Punjab"
+                    "name": "Punjab",
+                    "zone": "IND-ZONE-NORTH"
                 },
                 {
                     "id": "Haryana",
-                    "name": "Haryana"
+                    "name": "Haryana",
+                    "zone": "IND-ZONE-NORTH"
                 },
                 {
                     "id": "Himachal",
-                    "name": "Himachal"
+                    "name": "Himachal",
+                    "zone": "IND-ZONE-NORTH"
                 },
                 {
                     "id": "Jammu",
-                    "name": "Jammu"
+                    "name": "Jammu",
+                    "zone": "IND-ZONE-NORTH"
                 },
                 {
                     "id": "Bengal",
-                    "name": "Bengal"
+                    "name": "Bengal",
+                    "zone": "IND-ZONE-EAST"
                 },
                 {
                     "id": "Odisha",
-                    "name": "Odisha"
+                    "name": "Odisha",
+                    "zone": "IND-ZONE-EAST"
                 },
                 {
                     "id": "Jharkhand",
-                    "name": "Jharkhand"
+                    "name": "Jharkhand",
+                    "zone": "IND-ZONE-EAST"
                 },
                 {
                     "id": "Bihar",
-                    "name": "Bihar"
+                    "name": "Bihar",
+                    "zone": "IND-ZONE-EAST"
                 },
                 {
                     "id": "Assam",
-                    "name": "Assam"
+                    "name": "Assam",
+                    "zone": "IND-ZONE-EAST"
                 },
                 {
                     "id": "Uttar Pradesh",
-                    "name": "Uttar Pradesh"
+                    "name": "Uttar Pradesh",
+                    "zone": "IND-ZONE-CENTRAL"
                 },
                 {
                     "id": "Madhya Pradesh",
-                    "name": "Madhya Pradesh"
+                    "name": "Madhya Pradesh",
+                    "zone": "IND-ZONE-CENTRAL"
                 },
                 {
                     "id": "Rajasthan",
-                    "name": "Rajasthan"
+                    "name": "Rajasthan",
+                    "zone": "IND-ZONE-CENTRAL"
                 },
                 {
                     "id": "Vidarbha",
-                    "name": "Vidarbha"
+                    "name": "Vidarbha",
+                    "zone": "IND-ZONE-CENTRAL"
                 },
                 {
                     "id": "Chhattisgarh",
-                    "name": "Chhattisgarh"
+                    "name": "Chhattisgarh",
+                    "zone": "IND-ZONE-CENTRAL"
                 },
                 {
                     "id": "Chennai",

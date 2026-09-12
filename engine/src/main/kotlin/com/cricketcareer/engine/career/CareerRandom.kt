@@ -15,7 +15,7 @@ import com.cricketcareer.engine.rng.SimRandom
  * change and there is no way to tell a tuning improvement from a tuning
  * accident.
  *
- * See docs/CAREER_MODEL.md §10.
+ * See docs/CAREER_MODEL.md §12.
  */
 class CareerRandom(val seed: Long) {
 

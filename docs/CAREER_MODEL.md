@@ -220,7 +220,29 @@ options, and a top six. The scorer proposes, the balance check disposes.
 
 ---
 
-## 9. Fixtures
+## 9. The ladder
+
+Which sides a player is *eligible* for is geography, and it is read out of the
+seed database rather than written in Kotlin — `Ladder` knows nothing about
+zones or franchise leagues, only about three widening circles:
+
+| Rung | Who may pick him |
+|---|---|
+| College, district, age-group, state | His own region. You play for where you are from. |
+| Zonal | The zone his region feeds, recorded on the region in the seed file |
+| Franchise, national A, international | Anyone in his country — a selector is not bound to one state |
+
+Empty rungs are skipped, so a database with no age-group cricket in it promotes
+a district player straight to his state side rather than stalling him against a
+level with no teams on it. A world with a different pyramid gives a different
+ladder without a line changing in the engine (Q2).
+
+Whether he is *good enough* for a rung is §8's question, asked separately at
+each one. Eligibility never makes a selection and selection never checks a map.
+
+---
+
+## 10. Fixtures
 
 A season is not a number of matches, it is a list of them, and where they fall
 is what a career feels like. `FixtureList` builds that list from the seed
@@ -243,7 +265,7 @@ What matters here is what it hands the rest of this document:
 
 ---
 
-## 10. The world simulation
+## 11. The world simulation
 
 Three tiers, as decided in `docs/OPEN_QUESTIONS.md` Q1:
 
@@ -261,7 +283,7 @@ user's own.
 
 ---
 
-## 11. Determinism
+## 12. Determinism
 
 Career streams are derived from the **career seed** the same way match streams
 are derived from a match seed:

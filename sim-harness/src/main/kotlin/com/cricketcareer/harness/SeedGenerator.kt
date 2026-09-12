@@ -74,6 +74,12 @@ object SeedGenerator {
 
     private val ZONES = listOf("North", "South", "East", "West", "Central")
 
+    /** Ids are upper snake case throughout, so one rule builds all of them. */
+    private fun id(vararg parts: String) = parts.joinToString("-") { it.uppercase().replace(' ', '_') }
+
+    /** The team id of a zone, so the region table and the team table agree. */
+    private fun zoneIdFor(zone: String): String = id(HOME, "ZONE", zone)
+
     /** Other nations, international level only. */
     private val NATIONS = listOf(
         Nation("AUS", "Australia", BowlingMix(fast = 2.0, fastMedium = 2.2, medium = 1.0, offSpin = 0.5, legSpin = 0.6, leftArmSpin = 0.4)),
@@ -106,8 +112,6 @@ object SeedGenerator {
         val teams = mutableListOf<Team>()
         val players = mutableListOf<Player>()
         val competitions = mutableListOf<Competition>()
-
-        fun id(vararg parts: String) = parts.joinToString("-") { it.uppercase().replace(' ', '_') }
 
         fun squad(prefix: String, level: LadderLevel, size: Int, region: String, country: String, mix: BowlingMix): List<Player> =
             generator.generateSquad(
@@ -253,9 +257,13 @@ object SeedGenerator {
                 // Franchise cities overlap the state list — Mumbai, Delhi and
                 // Hyderabad are both a state side and a city team — so the
                 // region list is deduplicated rather than concatenated.
-                regions = (REGIONS.map { it.name } + franchiseCities + "India")
-                    .distinct()
-                    .map { Region(id = it, name = it) },
+                // Franchise cities and the national side are regions too (a
+                // team has to have one) but they feed no zone: nobody is picked
+                // for West Zone because he plays for the Mumbai franchise.
+                regions = (
+                    REGIONS.map { Region(id = it.name, name = it.name, zone = zoneIdFor(it.zone)) } +
+                        (franchiseCities + "India").map { Region(id = it, name = it) }
+                    ).distinctBy { it.id },
             ),
         ) + NATIONS.map { nation ->
             Country(
