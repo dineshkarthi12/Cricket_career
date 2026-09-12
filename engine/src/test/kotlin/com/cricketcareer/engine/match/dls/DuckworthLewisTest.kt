@@ -251,6 +251,99 @@ class DuckworthLewisTest {
         assertTrue(par(5) > par(2)) { "five down par ${par(5)}, two down par ${par(2)}" }
     }
 
+    @Test
+    fun `rain does not move a side relative to par`() {
+        // The fairness theorem the whole method rests on, and the only claim
+        // about a stoppage that holds without qualification. The resource a
+        // side has *used* is untouched by rain - a stoppage takes away future
+        // overs, not past ones - so par at the moment the players go off is the
+        // same number it was a ball earlier. A side ahead of par when the
+        // covers come on is still ahead of it when they are on.
+        val score = 260
+        val used = { overs: Double, wickets: Int, atStart: Double ->
+            atStart - resources(overs, wickets)
+        }
+
+        for (wickets in 0..8) {
+            for (oversLeft in listOf(40.0, 30.0, 20.0, 12.0, 6.0)) {
+                for (lost in listOf(2.0, 5.0, 11.0)) {
+                    val after = (oversLeft - lost).coerceAtLeast(0.0)
+                    val before = DuckworthLewis.resourcesAvailable(50.0, emptyList(), tuning)
+                    val afterRain = DuckworthLewis.resourcesAvailable(
+                        50.0,
+                        listOf(Interruption(oversLeft, after, wickets)),
+                        tuning,
+                    )
+                    assertEquals(
+                        DuckworthLewis.par(score, 100.0, used(oversLeft, wickets, before), tuning),
+                        DuckworthLewis.par(score, 100.0, used(after, wickets, afterRain), tuning),
+                        "$wickets down, $oversLeft overs left, $lost lost",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `whether rain helps a chasing side depends on how far short it is`() {
+        // A side needing a lot is asked for more per over after a stoppage; a
+        // side almost home is asked for less. Both are correct, and the second
+        // is why a captain well ahead of the rate wants the covers on. A first
+        // attempt at this asserted the rate always rises, which is only true of
+        // sides that are behind.
+        val score = 260
+        val cutShort = DuckworthLewis.resourcesAvailable(
+            50.0,
+            listOf(Interruption(20.0, 12.0, wicketsLost = 3)),
+            tuning,
+        )
+        val full = 100.0
+        val targetBefore = DuckworthLewis.target(score, 100.0, full, tuning)
+        val targetAfter = DuckworthLewis.target(score, 100.0, cutShort, tuning)
+
+        fun rates(runs: Int) =
+            (targetBefore - runs).toDouble() / 20 to (targetAfter - runs).toDouble() / 12
+
+        val (struggling, struggledAfter) = rates(90)
+        assertTrue(struggledAfter > struggling) {
+            "90 for 3 was asked %.2f an over and then %.2f".format(struggling, struggledAfter)
+        }
+
+        val (cruising, cruisedAfter) = rates(240)
+        assertTrue(cruisedAfter < cruising) {
+            "240 for 3 was asked %.2f an over and then %.2f".format(cruising, cruisedAfter)
+        }
+    }
+
+    @Test
+    fun `a side well short of par is asked for more per over when overs go`() {
+        // The single most important consequence of pricing wickets. A side 20
+        // overs into a chase of 250 that loses 15 of its remaining 30 does not
+        // get to keep scoring at the rate it was: it keeps ten wickets' worth
+        // of resource for half the overs, so the target falls by less than the
+        // overs do, and the required rate goes up.
+        val target = 250
+        val before = DuckworthLewis.target(target, 100.0, 100.0, tuning)
+        val requiredBefore = (before - 90).toDouble() / 30 // 90 for 2 after 20 overs
+
+        val after = DuckworthLewis.target(
+            firstInningsRuns = target,
+            resourcesFirst = 100.0,
+            resourcesSecond = DuckworthLewis.resourcesAvailable(
+                oversAtStart = 50.0,
+                interruptions = listOf(Interruption(30.0, 15.0, wicketsLost = 2)),
+                tuning = tuning,
+            ),
+            tuning = tuning,
+        )
+        val requiredAfter = (after - 90).toDouble() / 15
+
+        assertTrue(requiredAfter > requiredBefore) {
+            "before %.2f an over, after %.2f".format(requiredBefore, requiredAfter)
+        }
+        assertTrue(after < before) { "the target must still come down: $before -> $after" }
+    }
+
     // ---- the table itself is well formed ------------------------------------
 
     @Test

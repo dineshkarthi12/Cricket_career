@@ -25,9 +25,9 @@ class InningsState(
     /** The batting order, 1 to 11. Batters come in from here as wickets fall. */
     val battingOrder: List<PlayerId>,
     /** Overs available, when a rain-reduced innings shortens them. Null means the format's full allocation. */
-    val oversAvailable: Int? = format.oversPerInnings,
+    oversAvailable: Int? = format.oversPerInnings,
     /** Runs needed to win, when batting last. Null in a first innings. */
-    val target: Int? = null,
+    target: Int? = null,
 ) {
     init {
         require(battingOrder.size >= 2) { "an innings needs at least two batters" }
@@ -39,6 +39,29 @@ class InningsState(
     // --- Running totals -----------------------------------------------------
 
     var runs: Int = 0
+        private set
+
+    /**
+     * Overs this innings has, as it stands.
+     *
+     * Mutable only downwards, and only through [reduceOversTo]: rain takes
+     * overs away mid-innings, and the batting side has to be told — the intent
+     * model reads [ballsRemaining], so a side told it has fifteen overs instead
+     * of thirty starts playing like it. That acceleration is most of what a
+     * rain-shortened chase feels like, and it comes out of the existing model
+     * rather than a special case.
+     */
+    var oversAvailable: Int? = oversAvailable
+        private set
+
+    /**
+     * Runs needed to win, as it stands.
+     *
+     * Revised by rain, through [reviseTarget]. A chasing side that loses overs
+     * is chasing a different number afterwards, and the scoreboard has to say
+     * so from the moment the players come back.
+     */
+    var target: Int? = target
         private set
 
     var wickets: Int = 0
@@ -126,9 +149,38 @@ class InningsState(
     val runsRequired: Int? get() = target?.let { (it - runs).coerceAtLeast(0) }
 
     /** Every batter has been dismissed, or there is nobody left to partner the survivor. */
+    /**
+     * Cut this innings short. Rain only ever takes overs away.
+     *
+     * Refuses to go below what has already been bowled: an innings cannot be
+     * reduced to fewer overs than it has played, and a stoppage that would do
+     * that is an innings that is simply over.
+     */
+    /**
+     * Set the revised target after an interruption.
+     *
+     * Only rain revises a target, and when it does the new number is what the
+     * resource table says the innings is worth — never the opposition's score
+     * plus one. Refuses to be called on an innings that is not chasing, because
+     * a first innings with a target is a contradiction rather than a typo.
+     */
+    fun reviseTarget(runs: Int) {
+        check(target != null) { "this innings is not chasing anything" }
+        require(runs >= 1) { "a target of $runs is not a target" }
+        target = runs
+    }
+
+    fun reduceOversTo(overs: Int) {
+        check(!isComplete) { "the innings is already over" }
+        val current = oversAvailable
+        require(current == null || overs <= current) { "rain cannot hand overs back: $current -> $overs" }
+        require(overs >= completedOvers) { "cannot reduce to $overs overs with $completedOvers already bowled" }
+        oversAvailable = overs
+    }
+
     val allOut: Boolean get() = wickets >= MatchFormat.WICKETS_PER_INNINGS || nextBatterIndex > battingOrder.size
 
-    val chaseComplete: Boolean get() = target != null && runs >= target
+    val chaseComplete: Boolean get() = target?.let { runs >= it } == true
 
     val oversExhausted: Boolean get() = ballsRemaining == 0
 

@@ -2,6 +2,8 @@ package com.cricketcareer.engine.match.sim
 
 import com.cricketcareer.engine.config.EngineTuning
 import com.cricketcareer.engine.match.delivery.Weather
+import com.cricketcareer.engine.match.dls.DuckworthLewis
+import com.cricketcareer.engine.match.dls.Interruption
 import com.cricketcareer.engine.match.event.BallEventSink
 import com.cricketcareer.engine.match.state.InningsState
 import com.cricketcareer.engine.match.state.MatchResult
@@ -58,7 +60,12 @@ class MatchSimulator(
 
         val tossWinner = if (conditionsRng.chance(0.5)) HOME else AWAY
         state.setToss(tossWinner, tossDecision())
-        var battingFirst = if (state.toss!!.decision == TossDecision.BAT) tossWinner else state.setup.opponentOf(tossWinner)
+        val battingFirst = if (state.toss!!.decision == TossDecision.BAT) tossWinner else state.setup.opponentOf(tossWinner)
+
+        if (!format.isMultiDay) {
+            simulateLimitedOvers(state, battingFirst)
+            return state
+        }
 
         // Overs lost to weather. Without this every multi-day match finishes,
         // and roughly a quarter of real Tests are drawn because the rain came.
@@ -112,6 +119,181 @@ class MatchSimulator(
         if (state.result == null) state.concludeIfFinished(timeExpired = true)
         return state
     }
+
+    /**
+     * A one-day or Twenty20 match, including the rain.
+     *
+     * Kept apart from the multi-day loop because almost nothing is shared: no
+     * follow-on, no declaration, no match clock in overs, and — the reason this
+     * method exists — a result that may have to be read off a par score rather
+     * than off the scoreboard.
+     */
+    private fun simulateLimitedOvers(state: MatchState, battingFirst: String) {
+        val scheduled = checkNotNull(format.oversPerInnings)
+        val plan = RainModel.plan(format, weather, conditionsRng, tuning.rain)
+        if (plan.isWashout) {
+            state.concludeByDls(MatchResult.NoResult("abandoned without a ball bowled"))
+            return
+        }
+        val second = state.setup.opponentOf(battingFirst)
+
+        // ---- first innings ------------------------------------------------
+        val beforeAnyPlay = plan.inInnings(1).filter { it.afterOvers == 0 }.sumOf { it.oversLost }
+        val firstOvers = (scheduled - beforeAnyPlay).coerceAtLeast(0)
+        if (firstOvers == 0) {
+            state.concludeByDls(MatchResult.NoResult("rain; no play"))
+            return
+        }
+
+        val firstInnings = state.startInnings(battingFirst, oversAvailable = firstOvers)
+        val firstInterruptions = play(
+            match = state,
+            innings = firstInnings,
+            inningsNumber = 0,
+            pitch = startingPitch,
+            stoppages = plan.inInnings(1).filter { it.afterOvers > 0 },
+        )
+        val firstResources = DuckworthLewis.resourcesAvailable(
+            oversAtStart = firstOvers.toDouble(),
+            interruptions = firstInterruptions,
+            tuning = tuning.dls,
+        )
+
+        // ---- second innings -----------------------------------------------
+        // The side batting second gets the overs the side batting first was
+        // left with, not the overs it started with. Then the weather has
+        // another go at it.
+        val afterFirst = checkNotNull(firstInnings.oversAvailable)
+        val lostBeforeSecond = plan.inInnings(2).filter { it.afterOvers == 0 }.sumOf { it.oversLost }
+        val secondOvers = (afterFirst - lostBeforeSecond).coerceAtLeast(0)
+
+        if (!enoughCricket(secondOvers)) {
+            state.concludeByDls(MatchResult.NoResult("rain; ${secondOvers} overs was not a match"))
+            return
+        }
+
+        fun targetFor(interruptions: List<Interruption>): Int = DuckworthLewis.target(
+            firstInningsRuns = firstInnings.runs,
+            resourcesFirst = firstResources,
+            resourcesSecond = DuckworthLewis.resourcesAvailable(
+                oversAtStart = secondOvers.toDouble(),
+                interruptions = interruptions,
+                tuning = tuning.dls,
+            ),
+            tuning = tuning.dls,
+        )
+
+        val openingTarget = targetFor(emptyList())
+        val secondInnings = state.startInnings(second, oversAvailable = secondOvers, target = openingTarget)
+
+        // The target is revised every time the players go off. That is not a
+        // convenience: it is what makes the abandoned case fall out of the
+        // ordinary result logic. A stoppage that takes the chase to nought
+        // overs remaining leaves the side with resources it never used, and
+        // the revised target for those resources *is* par plus one - so a
+        // scoreboard comparison gives the right answer with no special case.
+        play(
+            match = state,
+            innings = secondInnings,
+            inningsNumber = 1,
+            pitch = pitchAfter,
+            stoppages = plan.inInnings(2).filter { it.afterOvers > 0 },
+            onInterruption = { soFar -> secondInnings.reviseTarget(targetFor(soFar)) },
+        )
+
+        // Rain that cuts a chase below the minimum leaves no match, however far
+        // ahead of par a side happens to be. A side bowled out, or one that got
+        // there, has finished the job however few overs it took.
+        val curtailed = !secondInnings.allOut && !secondInnings.chaseComplete
+        if (curtailed && !enoughCricket(secondInnings.completedOvers)) {
+            state.concludeByDls(
+                MatchResult.NoResult("rain; ${secondInnings.completedOvers} overs was not a match"),
+            )
+            return
+        }
+
+        state.concludeIfFinished()
+        // "(DLS method)" belongs on a scoreboard only when the target was
+        // actually revised. Rain that cost nobody an over, or that cost both
+        // sides the same, leaves an ordinary result.
+        if (checkNotNull(secondInnings.target) != firstInnings.runs + 1) state.markResultDls()
+    }
+
+    /**
+     * Bowl an innings, stopping for rain where the plan says to.
+     *
+     * Returns the stoppages as the resource table sees them: what the side had
+     * to bat when the players went off, and what it had when they came back.
+     */
+    private fun play(
+        match: MatchState,
+        innings: com.cricketcareer.engine.match.state.InningsState,
+        inningsNumber: Int,
+        pitch: Pitch,
+        stoppages: List<Stoppage>,
+        onInterruption: (List<Interruption>) -> Unit = {},
+    ): List<Interruption> {
+        val simulator = InningsSimulator(
+            format = format,
+            battingSide = sideFor(innings.battingTeam),
+            bowlingSide = sideFor(innings.bowlingTeam),
+            venue = venue,
+            pitch = pitch,
+            weather = weather,
+            level = level,
+            random = MatchRandom(com.cricketcareer.engine.rng.SimRandom.deriveSeed(seed, "innings-$inningsNumber")),
+            tuning = tuning,
+            sink = sink,
+            inningsNumber = inningsNumber + 1,
+        )
+
+        val interruptions = mutableListOf<Interruption>()
+        for (stoppage in stoppages) {
+            if (innings.isComplete) break
+            simulator.simulate(state = innings, overLimit = stoppage.afterOvers)
+            if (innings.isComplete) break
+
+            val available = checkNotNull(innings.oversAvailable)
+            val before = (available - innings.completedOvers).toDouble()
+            val reducedTo = (available - stoppage.oversLost).coerceAtLeast(innings.completedOvers)
+            val after = (reducedTo - innings.completedOvers).toDouble()
+            if (after < before) {
+                interruptions += Interruption(before, after, innings.wickets)
+                val wasAvailable = available
+                val targetBefore = innings.target
+                innings.reduceOversTo(reducedTo)
+                onInterruption(interruptions.toList())
+                match.recordInterruption(
+                    com.cricketcareer.engine.match.state.MatchInterruption(
+                        innings = inningsNumber + 1,
+                        afterOvers = innings.completedOvers,
+                        oversBefore = wasAvailable,
+                        oversAfter = reducedTo,
+                        wicketsLost = innings.wickets,
+                        runs = innings.runs,
+                        targetBefore = targetBefore,
+                        revisedTarget = innings.target,
+                    ),
+                )
+            }
+        }
+        if (!innings.isComplete) simulator.simulate(state = innings)
+        pitchAfter = simulator.pitch
+        return interruptions
+    }
+
+    /**
+     * Whether there has been enough cricket for anybody to have won.
+     *
+     * A playing condition, not a judgement: below the format's minimum the
+     * match is a no result however far ahead of par a side happens to be.
+     */
+    private fun enoughCricket(overs: Int): Boolean {
+        val minimum = format.minimumOversForResult ?: 1
+        return overs >= minimum
+    }
+
+    private var pitchAfter: Pitch = startingPitch
 
     private fun sideFor(team: String) = if (team == HOME) homeSide else awaySide
 

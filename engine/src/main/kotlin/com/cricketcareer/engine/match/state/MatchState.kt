@@ -16,13 +16,30 @@ enum class TossDecision { BAT, BOWL }
 /** How a completed match finished. */
 @Serializable
 sealed interface MatchResult {
-    /** Won by [runs] — the side batting first defended its total. */
+    /**
+     * Won by [runs] — the side batting first defended its total.
+     *
+     * [dls] is what a scoreboard prints as "(DLS method)". It is a separate
+     * field rather than a separate result type because the margin is a real
+     * margin either way: a side that finishes twenty-three short of par has
+     * lost by twenty-three runs, and a reader wants to be told both things.
+     */
     @Serializable
-    data class WonByRuns(val winner: String, val loser: String, val runs: Int) : MatchResult
+    data class WonByRuns(
+        val winner: String,
+        val loser: String,
+        val runs: Int,
+        val dls: Boolean = false,
+    ) : MatchResult
 
     /** Won by [wickets] — the side batting last chased it down. */
     @Serializable
-    data class WonByWickets(val winner: String, val loser: String, val wickets: Int) : MatchResult
+    data class WonByWickets(
+        val winner: String,
+        val loser: String,
+        val wickets: Int,
+        val dls: Boolean = false,
+    ) : MatchResult
 
     /** Won by an innings and [runs], in multi-day cricket. */
     @Serializable
@@ -30,7 +47,7 @@ sealed interface MatchResult {
 
     /** Scores level with the last innings complete. */
     @Serializable
-    data class Tied(val teamA: String, val teamB: String) : MatchResult
+    data class Tied(val teamA: String, val teamB: String, val dls: Boolean = false) : MatchResult
 
     /** Time ran out in a multi-day match. */
     @Serializable
@@ -39,6 +56,52 @@ sealed interface MatchResult {
     /** No result: abandoned, or too few overs bowled for a result to stand. */
     @Serializable
     data class NoResult(val reason: String) : MatchResult
+}
+
+/**
+ * One stoppage, as the scoreboard reports it.
+ *
+ * Kept on the match rather than thrown away inside the simulator because it is
+ * most of what a reader needs to understand a rain-affected result: "seven
+ * overs lost, target revised to 292" is the story, and without it the
+ * scoreboard shows a number nobody can account for.
+ */
+@Serializable
+data class MatchInterruption(
+    /** 1 or 2. */
+    val innings: Int,
+    /** Completed overs of that innings when the players went off. */
+    val afterOvers: Int,
+    /** Overs the innings had before, and has now. */
+    val oversBefore: Int,
+    val oversAfter: Int,
+    /** Wickets down at the stoppage. A side nine down loses almost nothing. */
+    val wicketsLost: Int,
+    /** Runs on the board when the players went off. */
+    val runs: Int = 0,
+    /** The target before this stoppage, and after it. Null when not a chase. */
+    val targetBefore: Int? = null,
+    val revisedTarget: Int? = null,
+) {
+    val oversLost: Int get() = oversBefore - oversAfter
+
+    /**
+     * What the chasing side needed per over before the stoppage and after it.
+     *
+     * Both go up, always. Overs and target both come down, but the target comes
+     * down by less, because the wickets in hand keep their value while the
+     * overs do not — which is the whole reason rain is dangerous to a side that
+     * is coasting.
+     */
+    fun requiredRateBefore(): Double? = rate(targetBefore, oversBefore)
+
+    fun requiredRateAfter(): Double? = rate(revisedTarget, oversAfter)
+
+    private fun rate(target: Int?, overs: Int): Double? {
+        if (target == null) return null
+        val left = overs - afterOvers
+        return if (left <= 0) null else (target - runs).toDouble() / left
+    }
 }
 
 /**
@@ -114,6 +177,15 @@ class MatchState(
 
     private val innings = mutableListOf<InningsState>()
 
+    private val interruptionLog = mutableListOf<MatchInterruption>()
+
+    /** Every stoppage, in the order they happened. Empty in a dry match. */
+    val interruptions: List<MatchInterruption> get() = interruptionLog.toList()
+
+    fun recordInterruption(interruption: MatchInterruption) {
+        interruptionLog += interruption
+    }
+
     val completedInnings: List<InningsState> get() = innings.toList()
 
     val currentInnings: InningsState? get() = innings.lastOrNull()?.takeIf { !it.isComplete }
@@ -138,6 +210,36 @@ class MatchState(
 
     fun updatePitch(updated: Pitch) {
         pitch = updated
+    }
+
+    /**
+     * Set a result that the scoreboard alone cannot work out.
+     *
+     * Only rain needs this. Every other result in cricket is a comparison of
+     * two totals, which [concludeIfFinished] does; a match abandoned mid-chase
+     * is decided against a par score, and par is not on the scoreboard.
+     */
+    fun concludeByDls(decided: MatchResult) {
+        check(result == null) { "the match already has a result" }
+        result = decided
+    }
+
+    /**
+     * Note that the result standing was reached under a revised target.
+     *
+     * The margin is already right — a side twenty-three short of a DLS target
+     * has lost by twenty-three runs — so this only adds what a scoreboard
+     * prints as "(DLS method)", which is the part a reader needs in order to
+     * know why the target was not the opposition's score plus one.
+     */
+    fun markResultDls() {
+        result = when (val current = result) {
+            is MatchResult.WonByRuns -> current.copy(dls = true)
+            is MatchResult.WonByWickets -> current.copy(dls = true)
+            is MatchResult.Tied -> current.copy(dls = true)
+            // A no result, a draw or an innings win is never a DLS decision.
+            else -> current
+        }
     }
 
     /** Runs [team] has scored across all its completed and current innings. */
@@ -168,7 +270,20 @@ class MatchState(
      * chasing needs to *pass* the opposition, so the target is the lead plus
      * one.
      */
-    fun startInnings(battingTeam: String, oversAvailable: Int? = null, enforcingFollowOn: Boolean = false): InningsState {
+    /**
+     * Open an innings.
+     *
+     * [target] overrides the computed one. Only rain needs that: a revised
+     * target is not the opposition's score plus one, it is what the resource
+     * table says the innings is worth, and the two must never be allowed to
+     * disagree about the number on the scoreboard.
+     */
+    fun startInnings(
+        battingTeam: String,
+        oversAvailable: Int? = null,
+        enforcingFollowOn: Boolean = false,
+        target: Int? = null,
+    ): InningsState {
         check(!isComplete) { "the match is over" }
         check(currentInnings == null) { "an innings is already in progress" }
         val format = setup.format
@@ -180,14 +295,13 @@ class MatchState(
             followOnEnforced = true
         }
 
-        val target = computeTarget(battingTeam)
         val state = InningsState(
             format = format,
             battingTeam = battingTeam,
             bowlingTeam = setup.opponentOf(battingTeam),
             battingOrder = setup.xiFor(battingTeam),
             oversAvailable = oversAvailable ?: format.oversPerInnings,
-            target = target,
+            target = target ?: computeTarget(battingTeam),
         )
         innings += state
         return state

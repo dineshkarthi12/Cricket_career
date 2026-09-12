@@ -28,6 +28,7 @@ data class EngineTuning(
     val pitch: PitchTuning = PitchTuning(),
     val formatIntent: FormatIntentTuning = FormatIntentTuning(),
     val dls: DlsTuning = DlsTuning(),
+    val rain: RainTuning = RainTuning(),
     val knobs: CalibrationKnobs = CalibrationKnobs(),
 ) {
     companion object {

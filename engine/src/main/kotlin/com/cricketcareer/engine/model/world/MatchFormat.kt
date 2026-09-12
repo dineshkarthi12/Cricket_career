@@ -47,6 +47,17 @@ data class MatchFormat(
 
     /** Whether rain-shortened targets use DLS. */
     val usesDls: Boolean = false,
+
+    /**
+     * Overs the side batting second must face before a rain-hit match can have
+     * a result at all. Null where the question does not arise.
+     *
+     * A playing condition rather than a tuning knob: twenty overs in a fifty-
+     * over game, five in a Twenty20. Below it there has not been enough cricket
+     * to say anybody won, and the match is a no result however far ahead of par
+     * a side happens to be.
+     */
+    val minimumOversForResult: Int? = null,
 ) {
     init {
         require(id.isNotBlank()) { "format id must not be blank" }
@@ -110,6 +121,7 @@ data class MatchFormat(
             ),
             hasSuperOver = true,
             usesDls = true,
+            minimumOversForResult = 5,
         )
 
         val FORTY_OVER: MatchFormat = MatchFormat(
@@ -126,6 +138,7 @@ data class MatchFormat(
             ),
             hasSuperOver = true,
             usesDls = true,
+            minimumOversForResult = 20,
         )
 
         val LIST_A: MatchFormat = MatchFormat(
@@ -142,6 +155,7 @@ data class MatchFormat(
             ),
             hasSuperOver = true,
             usesDls = true,
+            minimumOversForResult = 20,
         )
 
         /** Two-day cricket: age-group and early-season fixtures. */

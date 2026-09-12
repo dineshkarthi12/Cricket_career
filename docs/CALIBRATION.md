@@ -398,6 +398,18 @@ are enforced by tests rather than checked by eye.
 | Losing a wicket costs resource at every point of the DLS table | `DuckworthLewisTest` |
 | A side nine down loses under a fifth of what an opening pair loses to the same rain | `DuckworthLewisTest` |
 | The resource table predicts engine scoring within 4 s.e. + 6 runs | `DlsCalibrationTest` |
+| Rain does not move a side relative to par | `DuckworthLewisTest` |
+| 2-12% of one-day matches are decided under a revised target | `RainCalibrationTest` |
+| 0.5-5% of one-day matches are abandoned | `RainCalibrationTest` |
+
+### Known calibration gap: ties
+
+Measured on the reference sides and pitch, about **2%** of limited-overs
+matches end level, against roughly 1% in real Twenty20 cricket and well under
+that in one-day cricket. This predates the rain work — it is the *dry* tie rate
+— and it is a match-engine question rather than a DLS one. Logged here so it is
+not rediscovered as a rain bug: matches decided on par do tie more often than
+completed chases, and that part is the method, not a defect.
 
 ### Tempo, added 2026-09-12
 
