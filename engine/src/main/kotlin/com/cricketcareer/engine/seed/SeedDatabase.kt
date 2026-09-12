@@ -64,10 +64,45 @@ data class SeedDatabase(
             prettyPrint = true
         }
 
+        /**
+         * The roster is written compactly.
+         *
+         * Three thousand cricketers pretty-printed is six megabytes, and the
+         * point of pretty-printing is that a person reads the file. Nobody
+         * reads three thousand cricketers — the structure is what gets edited,
+         * the roster is what gets regenerated. Any editor will reformat it if
+         * someone does want to look.
+         */
+        private val COMPACT = Json { ignoreUnknownKeys = true }
+
         /** Parse without validating. Use [load] unless you are writing a test. */
         fun parse(json: String): SeedDatabase = JSON.decodeFromString(serializer(), json)
 
         fun encode(database: SeedDatabase): String = JSON.encodeToString(serializer(), database)
+
+        /** The structure, without the roster. Pretty-printed and hand-editable. */
+        fun encodeWorld(database: SeedDatabase): String =
+            JSON.encodeToString(serializer(), database.copy(players = emptyList()))
+
+        /** The roster alone, compact. */
+        fun encodePlayers(database: SeedDatabase): String =
+            COMPACT.encodeToString(serializer(), SeedDatabase(players = database.players))
+
+        /**
+         * Load a database split across its two files.
+         *
+         * Validated once, over the whole thing: a squad reference is only
+         * checkable when both halves are present, which is the main reason the
+         * split is a storage detail rather than two databases.
+         */
+        fun load(world: String, players: String): SeedDatabase {
+            val structure = parse(world)
+            val roster = COMPACT.decodeFromString(serializer(), players)
+            val combined = structure.copy(players = structure.players + roster.players)
+            val problems = SeedValidator.validate(combined)
+            if (problems.isNotEmpty()) throw SeedValidationException(problems)
+            return combined
+        }
 
         /**
          * Parse and validate, or throw with every problem listed.

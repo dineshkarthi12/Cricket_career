@@ -22,3 +22,17 @@ application {
     mainClass.set("com.cricketcareer.harness.MainKt")
     applicationDefaultJvmArgs = listOf("-Xmx4g")
 }
+
+// Reports that write files — the seed generator, the innings export — should
+// land at the repository root rather than inside this module, because that is
+// where `seed/` lives and where a person looking for the output will look.
+tasks.named<JavaExec>("run") {
+    workingDir = rootProject.projectDir
+}
+
+// SeedFileTest checks the database that actually ships, which lives at the
+// repository root. Tests run from the module directory, so point them at it
+// explicitly rather than leaving the path to depend on where Gradle was run.
+tasks.withType<Test>().configureEach {
+    systemProperty("cricket.seedDir", rootProject.file("seed").absolutePath)
+}

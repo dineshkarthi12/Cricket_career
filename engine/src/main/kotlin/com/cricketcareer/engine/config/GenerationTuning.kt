@@ -24,6 +24,7 @@ data class GenerationTuning(
         LadderLevel.STATE_AGE_GROUP to 52.0,
         LadderLevel.STATE_FIRST_CLASS to 62.0,
         LadderLevel.STATE_WHITE_BALL to 61.0,
+        LadderLevel.ZONAL to 67.0,
         LadderLevel.NATIONAL_A to 72.0,
         LadderLevel.FRANCHISE_T20 to 74.0,
         LadderLevel.INTERNATIONAL to 79.0,
@@ -94,6 +95,9 @@ data class GenerationTuning(
         LadderLevel.STATE_AGE_GROUP to 18.5,
         LadderLevel.STATE_FIRST_CLASS to 26.5,
         LadderLevel.STATE_WHITE_BALL to 26.0,
+        // Older than India A: a zonal side is picked on a body of state work,
+        // not on promise.
+        LadderLevel.ZONAL to 27.0,
         LadderLevel.NATIONAL_A to 24.5,
         LadderLevel.FRANCHISE_T20 to 27.5,
         LadderLevel.INTERNATIONAL to 28.5,

@@ -272,6 +272,7 @@ tests, wait for approval.
 | `docs/CALIBRATION.md` | Target bands, measurement method, and a log of every calibration run |
 | `docs/CAREER_MODEL.md` | The career layer: the clock, ageing, form, fatigue, injury, training, selection, contracts, the three world tiers |
 | `docs/UI.md` | The screens, the `:presentation` split, and why `:app` holds no logic |
+| `docs/SEED_DATABASE.md` | The world as data: countries, the pyramid, grounds, teams, competitions, and the licensing check |
 | `docs/OPEN_QUESTIONS.md` | Decisions that need the project owner, each with a working default |
 
 ### Decisions already taken

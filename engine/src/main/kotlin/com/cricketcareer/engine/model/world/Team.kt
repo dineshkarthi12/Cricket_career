@@ -27,6 +27,17 @@ enum class LadderLevel(
     STATE_AGE_GROUP("State age-group", standard = 0.45, coachingQuality = 0.60, attention = 0.12),
     STATE_FIRST_CLASS("State first-class", standard = 0.62, coachingQuality = 0.65, attention = 0.25),
     STATE_WHITE_BALL("State white-ball", standard = 0.60, coachingQuality = 0.62, attention = 0.28),
+
+    /**
+     * Zonal cricket: a side drawn from several states.
+     *
+     * A real rung rather than a decoration. It is the first level at which a
+     * player is picked *against* the best of four or five states rather than
+     * for his own, which is why a good state season and a zonal cap are
+     * different things, and it is usually where the national selectors are
+     * actually watching.
+     */
+    ZONAL("Zonal", standard = 0.70, coachingQuality = 0.74, attention = 0.33),
     FRANCHISE_T20("Franchise T20", standard = 0.80, coachingQuality = 0.72, attention = 0.90),
     NATIONAL_A("National A", standard = 0.78, coachingQuality = 0.82, attention = 0.40),
     INTERNATIONAL("International", standard = 0.92, coachingQuality = 0.88, attention = 1.00),

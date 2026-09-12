@@ -29,13 +29,26 @@ Three things, in order of how much they matter:
 ## 2. Where it lives, and who may touch it
 
 ```
-seed/                       the database itself, plain JSON, hand-editable
-  countries.json
-  venues.json
-  teams.json
-  competitions.json
-  players.json              generated, but a real editable file once written
+seed/
+  world.json      334 KB   countries, venues, teams, competitions
+                           pretty-printed and genuinely hand-editable
+  players.json    2.9 MB   the roster, compact
 ```
+
+Two files, not five, and the split is along the line that matters: **what a
+person edits** versus **what a person regenerates**. Pretty-printing all 2,903
+cricketers came to 6 MB, and the point of pretty-printing is that somebody
+reads the file — nobody reads three thousand cricketers. The structure is 334
+KB and opens in any editor.
+
+Regenerate with:
+
+```
+./gradlew :sim-harness:run --args="--report=seed --seed=20260912"
+```
+
+Deterministic in the seed, so a world can be rebuilt exactly or nudged by hand
+and kept.
 
 | Module | May |
 |---|---|
@@ -57,9 +70,17 @@ A country is a name, a bowling mix and the regions beneath it. The bowling mix
 is why a subcontinental country produces spinners and a bouncy one produces
 pace, without anyone writing a rule per country.
 
-### Regions and districts
+### Regions, districts and zones
 The pyramid, for **one** country in full (Q2): districts feed regions, regions
-feed the national side. Other countries exist at international level only —
+feed zones, zones feed the national side.
+
+Zones are a real rung rather than a decoration, and `LadderLevel.ZONAL` was
+added for them. It is the first level at which a player is picked *against* the
+best of four or five states rather than for his own, which is why a good state
+season and a zonal cap are different things — and it is usually where the
+national selectors are actually watching.
+
+Other countries exist at international level only —
 their domestic cricket is tier 3 in `docs/CAREER_MODEL.md` §9 and nobody will
 ever read a ball of it.
 
