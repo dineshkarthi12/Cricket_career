@@ -58,6 +58,17 @@ data class MatchFormat(
      * a side happens to be.
      */
     val minimumOversForResult: Int? = null,
+
+    /**
+     * Unsuccessful reviews each side may take per innings, where the technology
+     * exists at all.
+     *
+     * A playing condition. Two is the modern standard everywhere; older
+     * conditions allowed one, and domestic competitions below the top rung
+     * often have no review system at all — which `DrsTuning` gates separately,
+     * because whether the cameras are there is about the level, not the format.
+     */
+    val reviewsPerInnings: Int = 2,
 ) {
     init {
         require(id.isNotBlank()) { "format id must not be blank" }

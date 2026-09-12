@@ -13,6 +13,8 @@ import com.cricketcareer.engine.match.delivery.Stage4Read
 import com.cricketcareer.engine.match.delivery.Stage5Contact
 import com.cricketcareer.engine.match.delivery.Stage6Outcome
 import com.cricketcareer.engine.match.delivery.Weather
+import com.cricketcareer.engine.match.drs.Drs
+import com.cricketcareer.engine.match.drs.ReviewingSide
 import com.cricketcareer.engine.match.event.BallEvent
 import com.cricketcareer.engine.match.event.BallEventSink
 import com.cricketcareer.engine.match.event.BallId
@@ -22,6 +24,8 @@ import com.cricketcareer.engine.match.field.MatchPhase
 import com.cricketcareer.engine.match.pitch.PitchEvolution
 import com.cricketcareer.engine.match.pitch.Session
 import com.cricketcareer.engine.match.state.DeliveryOutcome
+import com.cricketcareer.engine.match.state.Dismissal
+import com.cricketcareer.engine.match.state.DismissalMode
 import com.cricketcareer.engine.match.state.InningsState
 import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Player
@@ -78,6 +82,7 @@ class InningsSimulator(
     private val fieldingRng = random.stream(RngStreams.FIELDING)
     private val runningRng = random.stream(RngStreams.RUNNING)
     private val umpiringRng = random.stream(RngStreams.UMPIRING)
+    private val reviewRng = random.stream(RngStreams.REVIEW)
     private val captaincyRng = random.stream(RngStreams.CAPTAINCY)
     private val conditionsRng = random.stream(RngStreams.CONDITIONS)
 
@@ -315,7 +320,7 @@ class InningsSimulator(
             trajectoryRng, runningRng, umpiringRng,
         )
 
-        val outcome = resolution.outcome
+        val outcome = review(state, resolution, striker, bowler)
         val ballId = BallId(inningsNumber, state.completedOvers, state.ballsIntoOver + 1, state.legalBalls)
         state.record(outcome)
 
@@ -423,6 +428,56 @@ class InningsSimulator(
         return usable >= oversLeft
     }
 
+    /**
+     * The Decision Review System, where it exists.
+     *
+     * Runs between the delivery and the scorebook, which is where it belongs:
+     * the umpire's decision is a fact of the ball, and the review is a separate
+     * question asked about it afterwards. Only lbw is reviewable here - it is
+     * the overwhelming majority of real reviews, and the one this engine has the
+     * tracking for.
+     *
+     * Draws come from the review stream, so this could not move a single ball
+     * of any baseline that existed before it.
+     */
+    private fun review(
+        state: InningsState,
+        resolution: com.cricketcareer.engine.match.delivery.DeliveryResolution,
+        striker: Player,
+        bowler: Player,
+    ): DeliveryOutcome {
+        val tracking = resolution.tracking ?: return resolution.outcome
+        if (!Drs.availableAt(level, tuning.drs)) return resolution.outcome
+
+        val outcome = resolution.outcome
+        val wasOut = outcome.dismissal?.mode == DismissalMode.LBW
+        val by = if (wasOut) ReviewingSide.BATTING else ReviewingSide.FIELDING
+
+        val taken = Drs.consider(
+            onFieldOut = wasOut,
+            tracking = tracking,
+            reviewsRemaining = state.reviewsRemaining(by),
+            judgement = level.standard,
+            // The last pair has nothing left to protect, so it reviews
+            // everything - which is why the tail burns both reviews on nothing
+            // and the crowd groans.
+            desperate = by == ReviewingSide.BATTING && state.wickets >= LAST_PAIR,
+            random = reviewRng,
+            tuning = tuning.drs,
+        ) ?: return outcome
+
+        state.recordReview(taken)
+        if (!taken.changedTheDecision) return outcome
+
+        return if (taken.isOut) {
+            outcome.copy(dismissal = Dismissal(DismissalMode.LBW, striker.id, bowler.id))
+        } else {
+            // Overturned the other way: he never was out, so nothing else that
+            // followed from the decision stands either.
+            outcome.copy(dismissal = null)
+        }
+    }
+
     private fun phaseFor(state: InningsState): MatchPhase {
         val total = state.oversAvailable ?: return MatchPhase.MIDDLE
         val over = state.completedOvers
@@ -479,6 +534,12 @@ class InningsSimulator(
     }
 
     private companion object {
+        /**
+         * Nine down. A side with one wicket standing has nothing left to hold a
+         * review for, so it reviews everything.
+         */
+        const val LAST_PAIR = 9
+
         /** A gap longer than this, in overs, ends a spell and gives him a rest. */
         const val SPELL_GAP_OVERS = 2
 

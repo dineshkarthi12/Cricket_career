@@ -1,5 +1,6 @@
 package com.cricketcareer.engine.match.delivery
 
+import com.cricketcareer.engine.match.drs.BallTracking
 import com.cricketcareer.engine.match.field.FieldPosition
 import com.cricketcareer.engine.match.field.Fielder
 import com.cricketcareer.engine.match.state.DeliveryOutcome
@@ -59,6 +60,15 @@ data class DeliveryResolution(
     val fielding: FieldingResolution?,
     val outcome: DeliveryOutcome,
     val commentaryFacts: CommentaryFacts,
+    /**
+     * What a camera would have shown, for a ball that struck the pad.
+     *
+     * Produced whether or not anybody appealed and whether or not the umpire
+     * gave it, because a review is a question asked *after* the decision and
+     * the answer cannot depend on what the umpire said. Null on every ball that
+     * was not an lbw shout.
+     */
+    val tracking: BallTracking? = null,
 )
 
 /**
@@ -263,16 +273,20 @@ object Stage6Outcome {
             }
         }
 
-        // LBW.
+        // LBW. The tracking is produced whether or not the umpire gives it,
+        // because a review asks what the ball did rather than what he said.
         if (point == ContactPoint.PAD && !noBall) {
-            val appeal = lbwDecision(context, ball, selection, umpiringRng)
+            val tracking = track(context, ball, selection)
+            val appeal = lbwDecision(context, ball, selection, umpiringRng, tracking)
             if (appeal) {
-                return resolution(DeliveryOutcome(dismissal = Dismissal(DismissalMode.LBW, striker.id, bowler.id)))
+                return resolution(
+                    DeliveryOutcome(dismissal = Dismissal(DismissalMode.LBW, striker.id, bowler.id)),
+                ).copy(tracking = tracking)
             }
             // Struck on the pad and survived: leg byes are possible but the
             // batters rarely bother unless it ran away.
             val legBye = if (rng.chance(0.10)) runningRng.nextInt(1, 3) else 0
-            return resolution(DeliveryOutcome(noBall = noBall, legByes = legBye))
+            return resolution(DeliveryOutcome(noBall = noBall, legByes = legBye)).copy(tracking = tracking)
         }
 
         if (point == ContactPoint.BODY) {
@@ -332,33 +346,93 @@ object Stage6Outcome {
         ball: DeliveredBall,
         selection: ShotSelection,
         umpiringRng: SimRandom,
+    ): Boolean = lbwDecision(context, ball, selection, umpiringRng, track(context, ball, selection))
+
+    private fun lbwDecision(
+        context: DeliveryContext,
+        ball: DeliveredBall,
+        selection: ShotSelection,
+        umpiringRng: SimRandom,
+        tracking: BallTracking,
     ): Boolean {
         val tuning = context.tuning.outcome
 
-        // Pitching outside leg: not out.
-        val pitchedOutsideLeg = ball.lineAtStumpsMetres - ball.totalDeviationMetres <
-            -Geometry.STUMP_HALF_WIDTH_M - Geometry.BALL_RADIUS_M
-        if (pitchedOutsideLeg && !ball.isFullToss) return false
-
-        val impactLine = ball.lineAtStumpsMetres
-        val inLine = abs(impactLine) < Geometry.STUMP_HALF_WIDTH_M + Geometry.BALL_RADIUS_M
-        val offeredShot = selection.shot.makesContact
-        if (!inLine && (impactLine < 0 || offeredShot)) return false
-
-        // Would it have gone on to hit? The pad is in front of the stumps, so
-        // the ball still has to climb or turn past them.
-        val projectedLine = impactLine + ball.turnMetres * 0.30 + ball.swingMetres * 0.15
-        val projectedHeight = ball.heightAtStumpsMetres + 0.13
-        val lineMargin = (Geometry.STUMP_HALF_WIDTH_M + Geometry.BALL_RADIUS_M - abs(projectedLine)) / 0.16
-        val heightMargin = (Geometry.STUMP_HEIGHT_M - projectedHeight) / 0.22
-        val clarity = minOf(lineMargin, heightMargin)
+        // Any of the three failing is not out however plumb the rest looks.
+        // The Laws are a conjunction, and the umpire is only allowed to be
+        // wrong about how close it was, not about the shape of the question.
+        if (tracking.pitchingMargin <= 0.0 || tracking.impactMargin <= 0.0) return false
 
         val umpireQuality = context.situation.level.standard
-        val error = tuning.umpireErrorWorst - (tuning.umpireErrorWorst - tuning.umpireErrorBest) * umpireQuality
-        val probability = logistic(tuning.lbwDecisionSlope * clarity * context.tuning.knobs.lbwStrictnessScale)
-        val withError = probability * (1.0 - error) + (1.0 - probability) * error * 0.7
-        return umpiringRng.chance(withError)
+        val sigma = tuning.umpireMarginSigmaWorst -
+            (tuning.umpireMarginSigmaWorst - tuning.umpireMarginSigmaBest) * umpireQuality
+
+        // He judges the *weakest* of the three, not wicket-hitting alone: an
+        // umpire is less willing to raise the finger when impact was barely in
+        // line, exactly as he is when the ball was barely clipping leg.
+        //
+        // And he misjudges the margin rather than flipping a coin on the
+        // verdict. That is what puts his mistakes where real ones are - on the
+        // balls that were close, and on height above all - and it is what gives
+        // a review system something to catch.
+        val perceivedMargin = tracking.outMargin + umpiringRng.nextGaussian() * sigma
+        val probability = logistic(
+            tuning.lbwDecisionSlope * perceivedMargin * context.tuning.knobs.lbwStrictnessScale,
+        )
+        return umpiringRng.chance(probability)
     }
+
+    /**
+     * The three lbw questions, as signed margins.
+     *
+     * Separated from the umpire's decision because a review asks what the ball
+     * *did*, and the answer cannot depend on what the umpire said about it.
+     * Before this existed the two were one function and there was nothing for a
+     * third umpire to look at.
+     *
+     * One unit is one tolerance width: the distance over which a decision goes
+     * from clear to marginal.
+     */
+    fun track(context: DeliveryContext, ball: DeliveredBall, selection: ShotSelection): BallTracking {
+        val edge = Geometry.STUMP_HALF_WIDTH_M + Geometry.BALL_RADIUS_M
+
+        // Pitching. Only outside leg is fatal, so the margin is how far inside
+        // the leg-stump line it landed. A full toss never pitched at all.
+        val pitchLine = ball.lineAtStumpsMetres - ball.totalDeviationMetres
+        val pitchingMargin = if (ball.isFullToss) CLEAR else (pitchLine + edge) / LINE_TOLERANCE_M
+
+        // Impact. In line is in line; outside off is only fatal if a stroke was
+        // offered; outside leg is never out.
+        val impactLine = ball.lineAtStumpsMetres
+        val offeredShot = selection.shot.makesContact
+        val impactMargin = when {
+            impactLine < -edge -> -CLEAR
+            impactLine > edge && offeredShot -> (edge - impactLine) / LINE_TOLERANCE_M
+            impactLine > edge -> CLEAR
+            else -> (edge - abs(impactLine)) / LINE_TOLERANCE_M
+        }
+
+        // Wickets. The pad is in front of the stumps, so the ball still has to
+        // climb or turn past them from where it struck.
+        val projectedLine = impactLine + ball.turnMetres * 0.30 + ball.swingMetres * 0.15
+        val projectedHeight = ball.heightAtStumpsMetres + 0.13
+        val lineMargin = (edge - abs(projectedLine)) / LINE_TOLERANCE_M
+        val heightMargin = (Geometry.STUMP_HEIGHT_M - projectedHeight) / HEIGHT_TOLERANCE_M
+
+        return BallTracking(
+            pitchingMargin = pitchingMargin,
+            impactMargin = impactMargin,
+            wicketsMargin = minOf(lineMargin, heightMargin),
+        )
+    }
+
+    /** Half a stump's width. Beyond this a line decision stops being arguable. */
+    private const val LINE_TOLERANCE_M = 0.16
+
+    /** Roughly a bail's height. The same idea, vertically. */
+    private const val HEIGHT_TOLERANCE_M = 0.22
+
+    /** A margin nobody would look at twice. */
+    private const val CLEAR = 9.0
 
     // --- Off the bat --------------------------------------------------------
 

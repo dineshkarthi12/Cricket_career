@@ -254,7 +254,7 @@ tests, wait for approval.
 | 0 | Repo skeleton, Gradle multi-module, CI, determinism core, docs | Done |
 | 1 | Core data model, serialization, fictional player generator | Done |
 | 2 | Match engine v1: full six-stage pipeline, T20 only, hit T20 calibration | Done |
-| 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | **Partly done — DLS outstanding, see docs/CALIBRATION.md** |
+| 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | Done |
 | 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |
 | 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
 | 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` done and tested; `:app` written but never compiled** |

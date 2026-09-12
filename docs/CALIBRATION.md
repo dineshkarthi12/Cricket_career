@@ -401,6 +401,42 @@ are enforced by tests rather than checked by eye.
 | Rain does not move a side relative to par | `DuckworthLewisTest` |
 | 2-12% of one-day matches are decided under a revised target | `RainCalibrationTest` |
 | 0.5-5% of one-day matches are abandoned | `RainCalibrationTest` |
+| An overturn and an umpire's call both leave the review intact | `DrsTest` |
+| 15-40% of reviews are overturned, 20-50% umpire's call | `DrsCalibrationTest` |
+| No review system exists below the top of the ladder | `DrsTest`, `DrsCalibrationTest` |
+
+### The review system, measured 2026-09-12
+
+Sample: 400 fifty-over innings between the reference sides, at
+`LadderLevel.INTERNATIONAL`.
+
+| | Measured | Real lbw reviews |
+|---|---:|---:|
+| Reviews per innings | 0.51 | ~1 |
+| Overturned | 29% | ~25% |
+| Umpire's call | 39% | ~35% |
+| Struck down | 33% | ~40% |
+| Taken by the batting side | 80% | nearer even |
+
+The last row is the known gap, and it has a cause: only lbw is reviewable here.
+A bowler's main reason to go upstairs is a faint edge nobody heard, and that
+needs an edge-detection model the engine does not have.
+
+Getting here took four corrections, each found by measuring rather than by
+reasoning:
+
+1. **Umpire error was a coin flip on the verdict**, which turns a plumb lbw into
+   not out at the same rate as a marginal one. Clear mistakes essentially never
+   happened and reviews had nothing to catch — 6% were overturned. It is now
+   noise on the *margin*, which puts errors where real ones are.
+2. **The umpire judged wicket-hitting alone**, gating on impact without weighing
+   how marginal it was, so he gave a ball clipping the line out as readily as a
+   plumb one. He now judges the weakest of the three.
+3. **Players read all three questions equally badly**, so reviews were noise on
+   marginal height and 76% came back umpire's call. They now read position far
+   better than height, as people actually do.
+4. **Sides reviewed things they could see would be umpire's call.** They now
+   discount the band before deciding it is worth a resource.
 
 ### Known calibration gap: ties
 

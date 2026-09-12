@@ -64,6 +64,31 @@ class InningsState(
     var target: Int? = target
         private set
 
+    /**
+     * Unsuccessful reviews each side has left, by who is reviewing.
+     *
+     * Per innings and per side, which is why it lives here rather than on the
+     * match: a side that burns both in the first innings of a Test gets them
+     * back for the second, and the two sides' allocations are independent.
+     */
+    private val reviewsLeft = linkedMapOf(
+        com.cricketcareer.engine.match.drs.ReviewingSide.BATTING to format.reviewsPerInnings,
+        com.cricketcareer.engine.match.drs.ReviewingSide.FIELDING to format.reviewsPerInnings,
+    )
+
+    private val reviewLog = mutableListOf<com.cricketcareer.engine.match.drs.Review>()
+
+    /** Every review taken in this innings, in order. */
+    val reviews: List<com.cricketcareer.engine.match.drs.Review> get() = reviewLog.toList()
+
+    fun reviewsRemaining(side: com.cricketcareer.engine.match.drs.ReviewingSide): Int =
+        reviewsLeft.getValue(side)
+
+    fun recordReview(review: com.cricketcareer.engine.match.drs.Review) {
+        reviewLog += review
+        reviewsLeft[review.by] = review.reviewsLeft
+    }
+
     var wickets: Int = 0
         private set
 

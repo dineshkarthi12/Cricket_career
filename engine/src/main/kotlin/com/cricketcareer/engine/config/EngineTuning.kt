@@ -29,6 +29,7 @@ data class EngineTuning(
     val formatIntent: FormatIntentTuning = FormatIntentTuning(),
     val dls: DlsTuning = DlsTuning(),
     val rain: RainTuning = RainTuning(),
+    val drs: DrsTuning = DrsTuning(),
     val knobs: CalibrationKnobs = CalibrationKnobs(),
 ) {
     companion object {
@@ -521,10 +522,27 @@ data class OutcomeTuning(
     /** Chance a batter takes a tight single anyway, at running judgement 50. */
     val tightSingleAppetite: Double = 0.49,
 
-    /** LBW: how sharply a clear decision becomes an out, and the umpire's error by level. */
+    /** LBW: how sharply a clear decision becomes an out. */
     val lbwDecisionSlope: Double = 4.0,
-    val umpireErrorBest: Double = 0.05,
-    val umpireErrorWorst: Double = 0.22,
+
+    /**
+     * How badly an umpire misjudges the margin, at the top of the ladder and at
+     * the bottom, in the same units the tracking uses.
+     *
+     * **Noise on the margin, not a coin flip on the verdict.** That distinction
+     * is the whole reason a review system is worth simulating. A flat error
+     * probability - which this was - turns a plumb lbw into not out at the same
+     * rate it turns a marginal one, so clear mistakes essentially never happen
+     * and there is nothing for a review to catch: measured, over half of all
+     * reviews came back umpire's call and one in six was overturned, against
+     * roughly a quarter and a quarter in real cricket.
+     *
+     * Misjudging the *margin* puts the errors where they really are: on the
+     * balls that were close, and above all on height, which is the thing a
+     * standing umpire genuinely cannot see.
+     */
+    val umpireMarginSigmaBest: Double = 0.55,
+    val umpireMarginSigmaWorst: Double = 1.60,
 
     /**
      * How often a keeper completes a stumping when the batter is out of his

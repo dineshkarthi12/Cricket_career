@@ -66,6 +66,15 @@ object RngStreams {
     /** Umpiring error and DRS decisions. */
     const val UMPIRING = "umpiring"
 
+    /**
+     * Whether a side goes upstairs, and how badly it misread the ball.
+     *
+     * Its own stream so that adding the review system could not move a single
+     * ball of any existing regression baseline - which is the whole reason the
+     * streams are split (CLAUDE.md §4).
+     */
+    const val REVIEW = "review"
+
     /** Toss, weather, light and rain interruptions. */
     const val CONDITIONS = "conditions"
 

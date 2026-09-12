@@ -743,7 +743,113 @@ why batters get out in the over before a break.
 
 ---
 
-## 12. Calibrating this thing
+## 12. Rain, and Duckworth–Lewis
+
+A limited-overs match can be interrupted, shortened or abandoned.
+
+`RainModel` draws the whole forecast **before a ball is bowled**, from the
+conditions stream, and always takes the same number of draws whether it rains
+once, twice or not at all. Both halves of that matter. Drawn ball by ball, the
+weather would depend on how many numbers the batting had used, so changing the
+shot model would change the forecast; a variable draw count would make one
+shower reshuffle the rest of the innings.
+
+Rain reads the same cloud and humidity the swing model reads — the day the ball
+hoops is the day the covers come on — and squared, because rain needs both
+together.
+
+`DuckworthLewis` prices what is lost. The naive fix, scaling the target by
+overs, is wrong in a way every cricket follower can feel: a side chasing 250 in
+50 asked for 125 in 25 has been handed the game, because it can bat its whole
+innings at six an over with ten wickets in hand. **Wickets are a resource too.**
+
+```
+Z(u, w) = asymptote[w] × (1 − exp(−decay[w] × u))
+```
+
+The table is **measured from this engine**, never borrowed — see
+`docs/CALIBRATION.md`. It is monotone in three directions at once: resources
+rise with overs, fall with wickets, and `A·b` — the run rate off the first
+remaining ball — falls with wickets. The third is easy to miss and matters
+most: if it rose, then at short overs a wicket would be worth *having*.
+
+The target is revised at every stoppage, and that is what makes the abandoned
+case fall out of the ordinary result logic rather than needing one of its own: a
+stoppage that takes a chase to nought overs remaining leaves the side with
+resources it never used, and the revised target for those resources **is** par
+plus one.
+
+The one claim about a stoppage that holds without qualification is the fairness
+theorem: **rain never moves a side relative to par.** A stoppage takes away
+future overs, not past ones, so the resource a side has used is untouched. Two
+claims that do *not* hold, both of which looked obvious and were tested into the
+ground:
+
+- A shortened chase is not played faster. The target scales with resources, so
+  the required rate barely moves.
+- Cutting a chase short does not always ask more per over. A side almost home is
+  asked for *less*, which is why a captain well ahead of the rate wants the
+  covers on.
+
+---
+
+## 13. The Decision Review System
+
+Two things are modelled, and keeping them apart is the whole design:
+
+1. **What the ball did.** `BallTracking`, measured in Stage 6: the three lbw
+   questions as *signed margins* rather than yes or no. "Pitched in line" and
+   "pitched in line by two millimetres" are different facts, and only the second
+   explains umpire's call. One unit is one tolerance width.
+2. **What the players thought it did.** A batter halfway down the wicket and a
+   bowler in his follow-through are both guessing, and they guess worse than the
+   umpire, who is directly behind it.
+
+An lbw is only as clear as its least clear question, so `outMargin` is the
+minimum of the three.
+
+### Who errs about what
+
+Both the umpire and the players read **position** well and **height** badly,
+and that asymmetry is doing most of the work:
+
+- A batter *knows* where he was hit and whether it pitched outside leg — he felt
+  it. Nobody knows whether it was going on to hit, which is the question the
+  technology was invented for. Reading all three equally badly made reviews
+  almost entirely noise on marginal wicket-hitting: three in four came back
+  umpire's call.
+- The umpire misjudges the **margin**, not the verdict. A flat error probability
+  — which this was — turns a plumb lbw into not out at the same rate it turns a
+  marginal one, so clear mistakes essentially never happen and a review system
+  has nothing to catch.
+
+### Whether anybody goes upstairs
+
+A side reviews when it believes the umpire is wrong by more than the
+umpire's-call band *plus* a confidence threshold. Clearing the band matters:
+a decision that comes back umpire's call has cost a review's worth of time and
+changed nothing, which is why captains say "it's going to be umpire's call,
+don't" out loud on the stump mic.
+
+An overturn and an umpire's call both leave the review intact. Only agreement
+with the umpire costs one.
+
+Reviews draw from their own stream, so adding the whole system could not move a
+single ball of any baseline that existed before it.
+
+**Where it exists** is a property of the rung, not the format. Below
+`DrsTuning.minimumLevelStandard` there is one umpire, no cameras and no appeal
+— which is one of the things that makes climbing the ladder mean something.
+
+**Known limitation.** Only lbw is reviewable. Caught-behind reviews need an
+edge-detection model the engine does not have yet, and the absence shows in the
+split: about four reviews in five are taken by the batting side here, against
+something nearer even in real cricket, because a bowler's main reason to go
+upstairs is a faint edge nobody heard.
+
+---
+
+## 14. Calibrating this thing
 
 The parameters above interact. Widening `σ_x` raises wides *and* boundaries *and*
 dismissals. Hitting Section 3's bands by hand-tweaking is not tractable, so
@@ -778,7 +884,7 @@ Every run is recorded in `docs/CALIBRATION.md`.
 
 ---
 
-## 13. Known modelling questions
+## 15. Known modelling questions
 
 Open items where the model above makes a choice that should be challenged.
 
