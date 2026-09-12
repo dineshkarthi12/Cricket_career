@@ -73,6 +73,7 @@ object FixtureList {
         seasonYear: Int,
         database: SeedDatabase,
         random: SimRandom,
+        seasonStartMonth: Int = SEASON_START_MONTH,
     ): List<Fixture> {
         require(teamId in competition.teams) {
             "team '$teamId' is not in competition '${competition.id}'"
@@ -83,7 +84,7 @@ object FixtureList {
         val meetings = meetingsFor(competition, teamId, seasonYear)
         if (meetings.isEmpty()) return emptyList()
 
-        val start = LocalDate.of(seasonYear, competition.startMonth, 1)
+        val start = LocalDate.of(calendarYear(competition, seasonYear, seasonStartMonth), competition.startMonth, 1)
         val window = (competition.weeks * DAYS_PER_WEEK).toLong()
 
         return spaceOut(
@@ -117,12 +118,34 @@ object FixtureList {
         seasonYear: Int,
         database: SeedDatabase,
         random: SimRandom,
+        seasonStartMonth: Int = SEASON_START_MONTH,
     ): List<Fixture> = spaceOut(
         database.competitions
             .filter { teamId in it.teams }
-            .flatMap { forTeam(it, teamId, seasonYear, database, random) }
+            .flatMap { forTeam(it, teamId, seasonYear, database, random, seasonStartMonth) }
             .sortedWith(compareBy<Fixture> { it.date }.thenBy { it.id }),
     )
+
+    /**
+     * The calendar year a competition's edition falls in.
+     *
+     * A season crosses the new year. The 2026 season starts in April 2026 and
+     * runs to March 2027, so a first-class competition beginning in October is
+     * 2026's and a T20 cup beginning in January is 2027's — and both belong to
+     * the same season. Numbering both by the calendar year instead put them
+     * nine months apart in the wrong order, which had a career playing a
+     * January competition before the October one it was promoted out of.
+     */
+    private fun calendarYear(competition: Competition, seasonYear: Int, seasonStartMonth: Int): Int =
+        if (competition.startMonth >= seasonStartMonth) seasonYear else seasonYear + 1
+
+    /**
+     * The month a season begins.
+     *
+     * April, because that is when the cricketing year turns in the country this
+     * database models in full. A world on a different calendar passes its own.
+     */
+    const val SEASON_START_MONTH: Int = 4
 
     /**
      * Push apart fixtures that a side could not physically play.

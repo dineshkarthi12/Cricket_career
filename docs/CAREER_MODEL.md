@@ -220,7 +220,7 @@ options, and a top six. The scorer proposes, the balance check disposes.
 
 ---
 
-## 9. The ladder
+## 9. The ladder, and moving on it
 
 Which sides a player is *eligible* for is geography, and it is read out of the
 seed database rather than written in Kotlin — `Ladder` knows nothing about
@@ -237,8 +237,51 @@ a district player straight to his state side rather than stalling him against a
 level with no teams on it. A world with a different pyramid gives a different
 ladder without a line changing in the engine (Q2).
 
+Two rungs are skipped when climbing: ones with no teams on them, and ones that
+are not actually harder. A state's red-ball and white-ball sides sit next to
+each other in the enum and are the same standard of cricket — moving a man
+between them is a sideways step that costs him a format, not a promotion.
+
 Whether he is *good enough* for a rung is §8's question, asked separately at
 each one. Eligibility never makes a selection and selection never checks a map.
+
+### A call-up
+
+`Progression` decides what a season was worth, and it decides it by asking the
+panel at the rung above — never by putting a threshold on an average. A call-up
+is a place in a **squad**, so the test is:
+
+> would the side above name him, two places clear of the man they were about to
+> release?
+
+Only the eleven who play are treated as incumbents; the rest of the squad is the
+fringe, and the fringe is exactly who a player coming up from below is competing
+with. Treating all eighteen as established men made the ladder inert — a
+cricketer averaging 37 spent twenty years in a district league and no code said
+why.
+
+Because it is the selection model doing the judging, the same season is worth
+different things in different competitions, with nothing written down to say so.
+
+### Being released
+
+Asymmetric with going up, deliberately:
+
+| | |
+|---|---|
+| `retentionShare` | Play less than a quarter of your side's matches and you are not in the plans |
+| `graceSeasons` | A man called up in April and dropped in September was never given a chance |
+| `forgottenAfterSeasons` | How long being overlooked takes to cost something |
+
+A player nobody has picked all summer is not assessed by the rung above at all.
+That is the whole cost of a season spent carrying drinks, and without it being
+overlooked has no consequence.
+
+**Known limitation.** Until the world simulation ages the rest of the database
+(§11, tier 3), everyone a player competes with is the cricketer the seed file
+froze: they never improve, never decline and never retire. A career played
+against them is harder at the top and easier at the bottom than it should be,
+and the omission counts in the career report read high because of it.
 
 ---
 

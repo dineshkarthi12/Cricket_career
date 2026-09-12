@@ -1,9 +1,15 @@
 package com.cricketcareer.harness
 
 import com.cricketcareer.engine.career.CareerClock
+import com.cricketcareer.engine.career.CareerPosition
 import com.cricketcareer.engine.career.CareerRandom
-import com.cricketcareer.engine.career.Fixture
+import com.cricketcareer.engine.career.CareerStreams
+import com.cricketcareer.engine.career.FixtureList
+import com.cricketcareer.engine.career.Ladder
+import com.cricketcareer.engine.career.Movement
+import com.cricketcareer.engine.career.Progression
 import com.cricketcareer.engine.career.Season
+import com.cricketcareer.engine.career.SeasonExposure
 import com.cricketcareer.engine.career.SeasonRecord
 import com.cricketcareer.engine.career.SelectorPersonality
 import com.cricketcareer.engine.config.CareerTuning
@@ -11,18 +17,21 @@ import com.cricketcareer.engine.generator.PlayerGenerator
 import com.cricketcareer.engine.generator.PlayerSpec
 import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Player
+import com.cricketcareer.engine.model.player.PlayerId
 import com.cricketcareer.engine.model.world.LadderLevel
-import com.cricketcareer.engine.model.world.MatchFormat
 import com.cricketcareer.engine.rng.SimRandom
+import com.cricketcareer.engine.seed.SeedDatabase
+import java.io.File
 import java.time.LocalDate
 
 /**
- * A whole career, printed.
+ * A whole career, printed, in the world the game ships with.
  *
  * The career layer's equivalent of the calibration report: the point is to be
  * able to read twenty years of one cricketer's life and see whether it looks
  * like a career or like a spreadsheet. A distribution test cannot tell you that
- * a player peaked at 24 and was finished at 29; a printed career can.
+ * a player peaked at 24 and was finished at 29, or that nobody in the world
+ * ever gets picked for their zone; a printed career can, and has.
  *
  *   ./gradlew :sim-harness:run --args="--report=career --matches=20 --seed=77"
  *
@@ -31,100 +40,141 @@ import java.time.LocalDate
 object CareerReport {
 
     private const val SEASON_START_MONTH = 4
-    private const val FIXTURES_PER_SEASON = 16
-    private const val DAYS_BETWEEN_FIXTURES = 6L
+    private const val COACHING_FALLBACK = 0.6
 
-    fun run(args: HarnessArgs) {
+    fun run(args: HarnessArgs, seedDirectory: String) {
+        val database = load(seedDirectory) ?: return
         val seasons = args.matches
-        val format = formatFor(args.format)
+        val tuning = CareerTuning.DEFAULT
+        val careerRandom = CareerRandom(args.seed)
         val generator = PlayerGenerator()
-        val squadRandom = SimRandom.fromSeed(args.seed)
 
-        // A squad of twenty, so places are genuinely contested: an XI picked
-        // from eleven players is not a selection model, it is a list.
+        // One created cricketer, from a real state, starting where a real
+        // eighteen-year-old starts: his district side.
         val firstSeason = LocalDate.of(2026, SEASON_START_MONTH, 1)
-        var squad: List<Player> = generator.generateSquad(
-            rng = squadRandom,
-            spec = PlayerSpec(country = "AVG", region = "AVG", level = LadderLevel.STATE_WHITE_BALL),
-            size = 20,
-            today = firstSeason,
-            idPrefix = "P",
-        )
-        // The youngest man in the squad, because a career report is only
-        // interesting if there is a career left to watch.
-        val subject = squad.maxBy { it.dateOfBirth }.id
-        val clock = CareerClock(CareerTuning.DEFAULT)
-        val season = Season(CareerTuning.DEFAULT)
-        val personality = SelectorPersonality.draw(squadRandom)
+        var subject = generator.generate(
+            rng = careerRandom.stream(CareerStreams.GENERATION),
+            spec = PlayerSpec(country = HOME, region = HOME_REGION, level = LadderLevel.DISTRICT_CLUB),
+            today = firstSeason.minusYears(0),
+            id = PlayerId("YOU"),
+        ).let { it.copy(dateOfBirth = firstSeason.minusYears(START_AGE)) }
 
-        val subjectPlayer = squad.first { it.id == subject }
-        println("Career report - $seasons seasons of ${format.displayName}, seed ${args.seed}")
-        println("Subject: ${subjectPlayer.name.full} (${subjectPlayer.role.displayName})")
-        println(
-            "Panel: loyalty %.2f  boldness %.2f  form weighting %.2f"
-                .format(personality.loyalty, personality.boldness, personality.formWeighting),
-        )
+        var position = Progression.startingPosition(subject, database)
+        if (position == null) {
+            println("No ladder for a ${subject.region} cricketer in this database.")
+            return
+        }
+
+        val clock = CareerClock(tuning)
+        val season = Season(tuning)
+
+        println("Career report - $seasons seasons in the shipped world, seed ${args.seed}")
+        println("Subject: ${subject.name.full} (${subject.role.displayName}), ${subject.region}")
+        println("Ladder:  " + Ladder.forPlayer(subject, database).joinToString(" -> ") { it.level.displayName })
         println()
         println(HEADER)
         println("-".repeat(HEADER.length))
 
         val career = ArrayList<SeasonRecord>(seasons)
-        var exposure = emptyMap<com.cricketcareer.engine.model.player.PlayerId, com.cricketcareer.engine.career.SeasonExposure>()
         repeat(seasons) { year ->
-            val from = LocalDate.of(2026 + year, SEASON_START_MONTH, 1)
-            val to = from.plusMonths(6)
-            val fixtures = List(FIXTURES_PER_SEASON) { i ->
-                Fixture(
-                    id = "Y%02d-F%02d".format(year, i),
-                    date = from.plusDays(7 + i * DAYS_BETWEEN_FIXTURES),
-                    format = format,
-                    level = LadderLevel.STATE_WHITE_BALL,
-                )
-            }
+            val at = checkNotNull(position)
+            val team = checkNotNull(database.teamsById[at.teamId])
+            val fixtures = FixtureList.seasonFor(
+                teamId = at.teamId,
+                seasonYear = 2026 + year,
+                database = database,
+                random = careerRandom.stream(CareerStreams.WORLD),
+            )
+            // The season runs from the first fixture to the last; the clock
+            // owns the gap on either side.
+            val from = fixtures.first().date.minusDays(1)
+            val to = fixtures.last().date.plusDays(LAST_MATCH_DAYS)
+
+            // He is in the side's squad, in place of whoever the generator put
+            // there. Until the world simulation ages the rest of the database
+            // (tier 3), everyone around him is the player the seed file froze.
+            val squad = listOf(subject) + database.squadOf(at.teamId).drop(1)
+            val personality = SelectorPersonality.draw(careerRandom.stream(CareerStreams.SELECTION))
+
             val records = season.play(
                 squad = squad,
                 fixtures = fixtures,
                 start = from,
                 end = to,
                 personality = personality,
-                coaching = 0.65,
-                random = CareerRandom(args.seed + year),
-                previousExposure = exposure,
+                coaching = at.level.coachingQuality.takeIf { it > 0.0 } ?: COACHING_FALLBACK,
+                random = CareerRandom(careerRandom.matchSeed("season:$year")),
+                previousExposure = mapOf(subject.id to (career.lastOrNull()?.exposure ?: SeasonExposure.NONE)),
             )
-            squad = records.map { it.player }
-            exposure = records.associate { it.player.id to it.exposure }
-            // Season.play owns start..end and nothing outside it, so the gap
-            // to the next season is the caller's. Skip it and a player whose
-            // birthday falls in the off-season never ages at all - which is
-            // exactly what this report showed the first time it was run.
-            squad = clock.advance(
-                players = squad,
-                from = to,
-                to = LocalDate.of(2027 + year, SEASON_START_MONTH, 1),
-                exposure = exposure,
-                random = SimRandom.fromSeed(args.seed + 90_000 + year),
-            )
-            val record = records.first { it.player.id == subject }
+            val record = records.first { it.player.id == subject.id }
             career += record
-            println(line(record, clock.ageOn(record.player, to)))
+            subject = record.player
+
+            val verdict = Progression.review(
+                player = subject,
+                record = record,
+                position = at,
+                database = database,
+                personality = personality,
+                random = careerRandom.stream(CareerStreams.SELECTION),
+                tuning = tuning,
+            )
+            println(line(record, clock.ageOn(subject, to), team.shortName, at.level, verdict.movement))
+
+            position = verdict.position
+            val nextSeason = LocalDate.of(2027 + year, SEASON_START_MONTH, 1)
+            if (to.isBefore(nextSeason)) {
+                // Skip the off-season and a player whose birthday falls in it
+                // never ages at all - which is exactly what this report showed
+                // the first time it was run.
+                subject = clock.advance(
+                    players = listOf(subject),
+                    from = to,
+                    to = nextSeason,
+                    exposure = mapOf(subject.id to record.exposure),
+                    random = SimRandom.fromSeed(careerRandom.matchSeed("offseason:$year")),
+                ).first()
+            }
         }
 
         println()
-        summarise(career)
+        summarise(career, checkNotNull(position))
     }
 
-    // Form and sharpness are read on the season's last day, which is after the
-    // off-season - a regular and a reserve both come back rusty, and that is
-    // the point rather than a defect in the report.
-    private const val HEADER =
-        "Age  Mat   Runs   HS    Avg     SR   50  100  Omit  Inj  Expo   Tech Pow Fit Pace"
+    private fun load(directory: String): SeedDatabase? {
+        val world = File(directory, "world.json")
+        val players = File(directory, "players.json")
+        if (!world.isFile || !players.isFile) {
+            println("No seed database in ${File(directory).absolutePath}.")
+            println("Build one first:  ./gradlew :sim-harness:run --args=\"--report=seed\"")
+            return null
+        }
+        return SeedDatabase.load(world = world.readText(), players = players.readText())
+    }
 
-    private fun line(record: SeasonRecord, age: Int): String {
+    private const val HOME = "IND"
+    private const val HOME_REGION = "Maharashtra"
+    private const val START_AGE = 18L
+
+    /** Days charged for the last match, so a five-day Test is inside the season. */
+    private const val LAST_MATCH_DAYS = 6L
+
+    private const val HEADER =
+        "Age  Side  Level             Mat   Runs   HS    Avg     SR  50 100  Wkt  Omit Inj  Then"
+
+    private fun line(
+        record: SeasonRecord,
+        age: Int,
+        side: String,
+        level: LadderLevel,
+        movement: Movement,
+    ): String {
         val balls = record.appearances.sumOf { it.ballsFaced }
         val strikeRate = if (balls == 0) 0.0 else record.runs * 100.0 / balls
-        val attributes = record.player.attributes
-        return "%3d %4d %6d %4d %6s %6.1f %4d %4d %5d %4d %5.2f %6d %3d %3d %4d".format(
+        return "%3d  %-5s %-16s %4d %6d %4d %6s %6.1f %3d %3d %4d %5d %3d  %s".format(
             age,
+            side.take(5),
+            level.displayName.take(16),
             record.matches,
             record.runs,
             record.highestScore,
@@ -132,17 +182,14 @@ object CareerReport {
             strikeRate,
             record.fifties,
             record.hundreds,
+            record.wickets,
             record.omissions,
             record.injuries,
-            record.exposure.minutes,
-            attributes[Attribute.TECHNIQUE],
-            attributes[Attribute.POWER],
-            attributes[Attribute.FITNESS],
-            attributes[Attribute.PACE],
+            movement.displayName,
         )
     }
 
-    private fun summarise(career: List<SeasonRecord>) {
+    private fun summarise(career: List<SeasonRecord>, finished: CareerPosition) {
         val matches = career.sumOf { it.matches }
         val runs = career.sumOf { it.runs }
         val dismissals = career.sumOf { it.dismissals }
@@ -151,16 +198,11 @@ object CareerReport {
 
         println("Career: $matches matches, $runs runs at ${"%.2f".format(runs.toDouble() / maxOf(dismissals, 1))}")
         println("        best $best, ${career.sumOf { it.fifties }} fifties, ${career.sumOf { it.hundreds }} hundreds")
+        println("        ${career.sumOf { it.wickets }} wickets")
         println("        ${career.sumOf { it.omissions }} times left out, ${career.sumOf { it.injuries }} injuries")
+        println("        finished at ${finished.level.displayName} with ${finished.teamId}")
         if (peak != null) {
             println("        technique peaked in season ${peak.index + 1} at ${peak.value.player.attributes[Attribute.TECHNIQUE]}")
         }
-    }
-
-    private fun formatFor(name: String): MatchFormat = when (name) {
-        "T20" -> MatchFormat.T20
-        "LIST_A" -> MatchFormat.LIST_A
-        "FIRST_CLASS" -> MatchFormat.FOUR_DAY
-        else -> MatchFormat.TEST
     }
 }

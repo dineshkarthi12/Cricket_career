@@ -342,4 +342,27 @@ are enforced by tests rather than checked by eye.
 | Eight focused training weeks move one area 1.5–4.0 points | `TrainingModelTest` |
 | The training projection and actual training agree within 1.5 points | `TrainingModelTest` |
 | A reduced T20 season has 1–12% ducks and 0.5–8% hundreds | `WorldSimTest` |
+| Reduced innings strike rates vary by more than 15% about their mean | `WorldSimTest` |
+| A range hitter strikes at least 25% faster than a blocker | `WorldSimTest` |
 | Regulars in a simulated season average between 3 and 120 | `SeasonTest` |
+
+### Tempo, added 2026-09-12
+
+Reduced innings previously took `balls = runs × ballsPerRun`, which made strike
+rate an exact constant per format: every innings by every cricketer in the
+world came back at 140.4, or 97.7, or 60.5. A career printed from it had
+averages swinging from 8 to 106 against a strike rate that moved by less than
+two points in twenty seasons.
+
+Balls per run is now multiplied by a batter's own scoring shape (range hitting,
+power and strike rotation against patience and concentration) and by a
+log-normal draw for the innings itself, shifted by −σ²/2 so its mean is exactly
+one. That last part matters: without it, widening the spread would quietly lower
+every strike rate in the world, and the tier-1/tier-2 agreement above would
+drift with it rather than failing loudly.
+
+`WorldSimTest`'s strike-rate agreement now states its tolerance as four
+standard errors of a **ratio estimator** — the innings-level spread of
+`runs − R × balls` — rather than a hand-picked epsilon of 12. Balls are heavily
+correlated inside one innings, so a ball-count standard error would be wrong by
+a large factor in the reassuring direction.

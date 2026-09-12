@@ -16,6 +16,7 @@ data class CareerTuning(
     val injury: InjuryTuning = InjuryTuning(),
     val training: TrainingTuning = TrainingTuning(),
     val selection: SelectionTuning = SelectionTuning(),
+    val progression: ProgressionTuning = ProgressionTuning(),
     val contracts: ContractTuning = ContractTuning(),
     val world: WorldTuning = WorldTuning(),
 ) {
@@ -383,6 +384,66 @@ data class TrainingTuning(
  * shifts them, which is what makes a career feel like something happening to
  * the player rather than a scoreboard he controls.
  */
+/**
+ * Moving between rungs of the ladder.
+ *
+ * The numbers that decide whether a season was a promotion, a holding pattern
+ * or the end of something. They are the difference between a career that reads
+ * as a story and one that reads as a random walk, and they are deliberately
+ * asymmetric: going up is hard and going down is slow, because that is what
+ * being in a system with selectors in it feels like.
+ *
+ * See docs/CAREER_MODEL.md §9.
+ */
+data class ProgressionTuning(
+    /**
+     * How many squad places clear of the last man a player must be before the
+     * rung above takes him.
+     *
+     * A call-up is a place in a *squad*, not in an XI — a young player is
+     * picked to be around the side, and the XI is a separate argument had every
+     * match. So the test is whether he would be named at all, and the margin is
+     * what stops that being "level with the man they were about to release":
+     * two means he has to be clearly ahead of the fringe rather than equal to
+     * it. Raising it makes the ladder longer and debuts later.
+     */
+    val callUpMargin: Int = 2,
+
+    /**
+     * Share of his side's matches a player must play to keep his place.
+     *
+     * Below this he is not in the plans, and the rung below wants him playing.
+     * Low, because carrying a man for a season is a real thing selectors do.
+     */
+    val retentionShare: Double = 0.25,
+
+    /**
+     * Seasons at a new rung before he can be sent back down.
+     *
+     * A player called up in April and dropped in September has not been given
+     * a chance, and a model that does that produces careers that yo-yo instead
+     * of developing.
+     */
+    val graceSeasons: Int = 1,
+
+    /**
+     * Seasons a player can be kept out of the reckoning before the selectors at
+     * the rung above stop looking at him at all.
+     *
+     * This is what makes a missed opportunity cost something. Without it a
+     * thirty-year-old who never played is assessed exactly like a nineteen-
+     * year-old who never played, and being overlooked has no consequence.
+     */
+    val forgottenAfterSeasons: Int = 3,
+) {
+    init {
+        require(callUpMargin >= 0) { "callUpMargin $callUpMargin cannot be negative" }
+        require(retentionShare in 0.0..1.0) { "retentionShare $retentionShare must be in 0..1" }
+        require(graceSeasons >= 0) { "graceSeasons $graceSeasons" }
+        require(forgottenAfterSeasons >= 1) { "forgottenAfterSeasons $forgottenAfterSeasons" }
+    }
+}
+
 data class SelectionTuning(
     /** Weight on raw ability for the format. The largest term, and it should be. */
     val weightStandard: Double = 1.00,
@@ -590,4 +651,26 @@ data class WorldTuning(
      * tier-2 player in a purple patch and a tier-1 player in one look alike.
      */
     val formEffect: Double = 0.18,
+
+    /**
+     * How far a batter's own scoring shape moves his strike rate.
+     *
+     * A range hitter and a blocker do not score at the same rate, and until
+     * this existed every reduced innings in the world came back at exactly the
+     * format's mean strike rate - a batter's whole tempo, which is half of what
+     * distinguishes one cricketer from another, was not modelled at all. The
+     * term is the balance between his scoring attributes and his occupying
+     * ones, centred so an even player is unaffected.
+     */
+    val tempoFromAttributes: Double = 0.55,
+
+    /**
+     * Log-normal spread of the balls-per-run multiplier on one innings.
+     *
+     * A thirty off ninety and a thirty off twenty are different innings, and a
+     * model that cannot tell them apart cannot produce a chase. Normalised to
+     * mean one, so widening the spread changes the shape of a career's innings
+     * without moving the strike rate the calibration suite measures.
+     */
+    val tempoSpread: Double = 0.26,
 )

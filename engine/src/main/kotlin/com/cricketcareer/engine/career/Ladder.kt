@@ -55,16 +55,26 @@ object Ladder {
     /**
      * The rung above [level] that this player has somewhere to go on.
      *
-     * Skipping empty rungs matters: a world with no age-group cricket in it
-     * must promote a district player straight to his state side rather than
-     * stalling him against a level that has no teams.
+     * Two things are skipped, both because a step that is not a step up is not
+     * a promotion:
+     *
+     * - **Empty rungs.** A world with no age-group cricket in it promotes a
+     *   district player straight to his state side rather than stalling him
+     *   against a level with no teams on it.
+     * - **Rungs that are not harder.** A state's red-ball and white-ball sides
+     *   sit next to each other in the enum but are the same standard of
+     *   cricket, and moving a man from one to the other is a sideways move that
+     *   costs him a format. The next rung is the next one where the cricket is
+     *   genuinely better.
      */
     fun nextRung(player: Player, level: LadderLevel, database: SeedDatabase): Rung? =
-        forPlayer(player, database).firstOrNull { it.level.ordinal > level.ordinal }
+        forPlayer(player, database)
+            .firstOrNull { it.level.ordinal > level.ordinal && it.level.standard > level.standard }
 
     /** The rung below, for a player who has been dropped out of his side. */
     fun previousRung(player: Player, level: LadderLevel, database: SeedDatabase): Rung? =
-        forPlayer(player, database).lastOrNull { it.level.ordinal < level.ordinal }
+        forPlayer(player, database)
+            .lastOrNull { it.level.ordinal < level.ordinal && it.level.standard < level.standard }
 
     /**
      * Whether [player] could be picked for [team] on grounds of where he is from.

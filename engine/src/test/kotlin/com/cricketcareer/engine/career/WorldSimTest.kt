@@ -3,6 +3,7 @@ package com.cricketcareer.engine.career
 import com.cricketcareer.engine.config.WorldTuning
 import com.cricketcareer.engine.fixtures.CalibrationRun
 import com.cricketcareer.engine.fixtures.Fixtures
+import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Attributes
 import com.cricketcareer.engine.model.player.Player
 import com.cricketcareer.engine.model.player.PlayerState
@@ -76,7 +77,75 @@ class WorldSimTest {
 
         val reduced = season(batter(), Fixtures.T20, 40_000)
         val tier2 = reduced.sumOf { it.runs }.toDouble() / reduced.sumOf { it.ballsFaced } * 100.0
-        assertTrue(abs(tier2 - tier1) < 12.0) { "engine SR %.1f, reduced SR %.1f".format(tier1, tier2) }
+
+        // Strike rate is a ratio estimator, so its standard error comes from
+        // the innings-level spread of (runs - R x balls), not from the ball
+        // count - balls are heavily correlated inside one innings. The engine
+        // sample's spread is not exposed innings by innings, so it is taken to
+        // have the same shape as the reduced one's; it is the smaller sample by
+        // two orders of magnitude and dominates the error either way.
+        val reducedError = strikeRateStandardError(reduced.map { it.runs }, reduced.map { it.ballsFaced })
+        val engineError = reducedError * sqrt(reduced.size.toDouble() / stats.wickets)
+        val tolerance = 4.0 * sqrt(reducedError * reducedError + engineError * engineError)
+
+        assertTrue(abs(tier2 - tier1) <= tolerance) {
+            "engine SR %.1f, reduced SR %.1f, 4 s.e. = %.1f".format(tier1, tier2, tolerance)
+        }
+    }
+
+    /** Standard error of an aggregate strike rate, by the delta method. */
+    private fun strikeRateStandardError(runs: List<Int>, balls: List<Int>): Double {
+        val n = runs.size
+        val ratio = runs.sum().toDouble() / balls.sum()
+        val meanBalls = balls.sum().toDouble() / n
+        val variance = runs.indices.sumOf {
+            val residual = runs[it] - ratio * balls[it]
+            residual * residual
+        } / (n - 1)
+        return 100.0 * sqrt(variance / n) / meanBalls
+    }
+
+    // ---- Tempo -----------------------------------------------------------
+
+    @Test
+    fun `two batters do not strike at the same rate`() {
+        // Until a tempo term existed, every reduced innings in the world came
+        // back at exactly the format's mean strike rate. A model that cannot
+        // tell a thirty off ninety from a thirty off twenty cannot produce a
+        // chase, and every career in it looks the same.
+        val rates = season(batter(), Fixtures.LIST_A, 4_000)
+            .filter { it.runs >= 10 }
+            .map { it.runs * 100.0 / it.ballsFaced }
+
+        val mean = rates.average()
+        val spread = sqrt(rates.sumOf { (it - mean) * (it - mean) } / (rates.size - 1))
+        assertTrue(spread / mean > 0.15) { "strike rates vary by only %.1f%%".format(100.0 * spread / mean) }
+    }
+
+    @Test
+    fun `a range hitter scores faster than a blocker`() {
+        fun shaped(scoring: Int, occupying: Int): Player = batter().let {
+            it.copy(
+                attributes = it.attributes.withAll(
+                    mapOf(
+                        Attribute.RANGE_HITTING to scoring,
+                        Attribute.POWER to scoring,
+                        Attribute.STRIKE_ROTATION to scoring,
+                        Attribute.PATIENCE to occupying,
+                        Attribute.CONCENTRATION to occupying,
+                    ),
+                ),
+            )
+        }
+        val hitter = shaped(scoring = 90, occupying = 20)
+        val blocker = shaped(scoring = 20, occupying = 90)
+
+        fun strikeRate(p: Player) = season(p, Fixtures.LIST_A, 8_000)
+            .let { it.sumOf { i -> i.runs }.toDouble() / it.sumOf { i -> i.ballsFaced } * 100.0 }
+
+        assertTrue(strikeRate(hitter) > strikeRate(blocker) * 1.25) {
+            "hitter %.1f, blocker %.1f".format(strikeRate(hitter), strikeRate(blocker))
+        }
     }
 
     // ---- Shape ----------------------------------------------------------

@@ -166,6 +166,7 @@ class LadderTest {
         val below = Ladder.previousRung(player, LadderLevel.ZONAL, world)
 
         assertEquals(LadderLevel.STATE_WHITE_BALL, checkNotNull(below).level)
+        assertTrue(checkNotNull(below).level.standard < LadderLevel.ZONAL.standard)
     }
 
     @Test
@@ -175,17 +176,33 @@ class LadderTest {
 
     @Test
     fun `every step up is a step up`() {
-        // Walk the whole ladder and check it only ever goes one way.
+        // Walk the whole ladder and check it only ever goes one way, and that
+        // every step is to harder cricket rather than merely to a later entry
+        // in the enum.
         val player = player("MH", "Maharashtra")
         var level = LadderLevel.DISTRICT_CLUB
         val climbed = mutableListOf(level)
         while (true) {
             val next = Ladder.nextRung(player, level, world) ?: break
             assertTrue(next.level.ordinal > level.ordinal)
+            assertTrue(next.level.standard > level.standard)
             level = next.level
             climbed += level
         }
         assertEquals(LadderLevel.INTERNATIONAL, climbed.last())
-        assertEquals(climbed, rungs(player).map { it.level })
+    }
+
+    @Test
+    fun `a state's white-ball side is not a promotion from its red-ball side`() {
+        // The two sit next to each other in the enum and are the same standard
+        // of cricket. Calling the move a promotion took a player's first-class
+        // cricket away and told him he had been rewarded.
+        val player = player("MH", "Maharashtra")
+
+        assertTrue(rungs(player).any { it.level == LadderLevel.STATE_WHITE_BALL }, "he is eligible for it")
+        assertEquals(
+            LadderLevel.ZONAL,
+            checkNotNull(Ladder.nextRung(player, LadderLevel.STATE_FIRST_CLASS, world)).level,
+        )
     }
 }

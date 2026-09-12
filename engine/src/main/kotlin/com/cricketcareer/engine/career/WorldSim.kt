@@ -1,9 +1,11 @@
 package com.cricketcareer.engine.career
 
 import com.cricketcareer.engine.config.WorldTuning
+import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Player
 import com.cricketcareer.engine.model.world.MatchFormat
 import com.cricketcareer.engine.rng.SimRandom
+import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.roundToInt
 
@@ -76,13 +78,40 @@ object WorldSim {
         val mean = (base * skill * opposition * form).coerceAtLeast(1.0)
 
         val runs = drawGeometricish(mean, random)
-        // A big score is a longer innings, not merely a faster one.
-        val balls = (runs * ballsPerRun(format, tuning)).roundToInt().coerceAtLeast(1)
+        // A big score is a longer innings, not merely a faster one - but how
+        // long depends on who is batting and on the innings he happens to play.
+        val balls = (runs * ballsPerRun(format, tuning) * tempo(batter, random, tuning))
+            .roundToInt().coerceAtLeast(1)
         // An innings has eleven batters and at most ten wickets, so somebody is
         // always not out; over five days almost everybody else is.
         val dismissalRate =
             if (format.isMultiDay) tuning.dismissalRateMultiDay else tuning.dismissalRateLimitedOvers
         return ReducedInnings(runs, balls, out = random.nextDouble() < dismissalRate)
+    }
+
+    /**
+     * Balls-per-run multiplier for this batter in this innings, mean 1.
+     *
+     * Two parts. A batter's *shape* — range hitting, power and strike rotation
+     * against patience and concentration — says whether he is naturally quick
+     * or slow, and it is the same distinction the full engine makes in shot
+     * selection. On top of that, one innings is not the next: a batter who
+     * averages a strike rate of 60 plays some innings at 40 and some at 90.
+     *
+     * The log-normal is shifted by -σ²/2 so its mean is exactly one. Without
+     * that, widening the spread would quietly lower every strike rate in the
+     * world and the tier-1/tier-2 agreement would drift with it.
+     */
+    private fun tempo(batter: Player, random: SimRandom, tuning: WorldTuning): Double {
+        val attacking = listOf(Attribute.RANGE_HITTING, Attribute.POWER, Attribute.STRIKE_ROTATION)
+            .sumOf { batter.attributes.normalised(it) } / 3.0
+        val occupying = listOf(Attribute.PATIENCE, Attribute.CONCENTRATION)
+            .sumOf { batter.attributes.normalised(it) } / 2.0
+        // Quicker scoring means fewer balls per run, so the term subtracts.
+        val shape = 1.0 - tuning.tempoFromAttributes * (attacking - occupying)
+        val sigma = tuning.tempoSpread
+        val noise = exp(random.nextGaussian() * sigma - sigma * sigma / 2.0)
+        return (shape * noise).coerceIn(0.35, 3.0)
     }
 
     /** One bowling spell, reduced. */
