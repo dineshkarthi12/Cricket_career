@@ -12,6 +12,7 @@ import com.cricketcareer.engine.career.Season
 import com.cricketcareer.engine.career.SeasonExposure
 import com.cricketcareer.engine.career.SeasonRecord
 import com.cricketcareer.engine.career.SelectorPersonality
+import com.cricketcareer.engine.career.WorldAgeing
 import com.cricketcareer.engine.config.CareerTuning
 import com.cricketcareer.engine.generator.PlayerGenerator
 import com.cricketcareer.engine.generator.PlayerSpec
@@ -51,11 +52,18 @@ object CareerReport {
 
         // One created cricketer, from a real state, starting where a real
         // eighteen-year-old starts: his district side.
+        //
+        // Generated with the *potential* of the rung he might reach rather than
+        // the one he is on. That is deliberate and it is the point of the
+        // report: a player drawn from the district distribution stays in the
+        // district league, which is true of almost every district cricketer and
+        // makes for twenty-two identical lines. A career is worth printing when
+        // there is a career in it.
         val firstSeason = LocalDate.of(2026, SEASON_START_MONTH, 1)
         var subject = generator.generate(
             rng = careerRandom.stream(CareerStreams.GENERATION),
-            spec = PlayerSpec(country = HOME, region = HOME_REGION, level = LadderLevel.DISTRICT_CLUB),
-            today = firstSeason.minusYears(0),
+            spec = PlayerSpec(country = HOME, region = HOME_REGION, level = PROSPECT_LEVEL),
+            today = firstSeason,
             id = PlayerId("YOU"),
         ).let { it.copy(dateOfBirth = firstSeason.minusYears(START_AGE)) }
 
@@ -67,6 +75,12 @@ object CareerReport {
 
         val clock = CareerClock(tuning)
         val season = Season(tuning)
+        // The world is not a photograph: everyone he is competing with ages,
+        // declines and eventually stops, and their places are taken by people
+        // who were not there when he started.
+        var world = database
+        var retired = 0
+        var debutants = 0
 
         println("Career report - $seasons seasons in the shipped world, seed ${args.seed}")
         println("Subject: ${subject.name.full} (${subject.role.displayName}), ${subject.region}")
@@ -78,11 +92,11 @@ object CareerReport {
         val career = ArrayList<SeasonRecord>(seasons)
         repeat(seasons) { year ->
             val at = checkNotNull(position)
-            val team = checkNotNull(database.teamsById[at.teamId])
+            val team = checkNotNull(world.teamsById[at.teamId])
             val fixtures = FixtureList.seasonFor(
                 teamId = at.teamId,
                 seasonYear = 2026 + year,
-                database = database,
+                database = world,
                 random = careerRandom.stream(CareerStreams.WORLD),
             )
             // The season runs from the first fixture to the last; the clock
@@ -93,7 +107,7 @@ object CareerReport {
             // He is in the side's squad, in place of whoever the generator put
             // there. Until the world simulation ages the rest of the database
             // (tier 3), everyone around him is the player the seed file froze.
-            val squad = listOf(subject) + database.squadOf(at.teamId).drop(1)
+            val squad = listOf(subject) + world.squadOf(at.teamId).drop(1)
             val personality = SelectorPersonality.draw(careerRandom.stream(CareerStreams.SELECTION))
 
             val records = season.play(
@@ -114,7 +128,7 @@ object CareerReport {
                 player = subject,
                 record = record,
                 position = at,
-                database = database,
+                database = world,
                 personality = personality,
                 random = careerRandom.stream(CareerStreams.SELECTION),
                 tuning = tuning,
@@ -123,6 +137,21 @@ object CareerReport {
 
             position = verdict.position
             val nextSeason = LocalDate.of(2027 + year, SEASON_START_MONTH, 1)
+
+            // A year happens to everybody else too. His own player is excluded:
+            // the career clock below advances him through the cricket he
+            // actually played, and passing him through here would age him twice.
+            val (nextWorld, worldReport) = WorldAgeing.advanceSeason(
+                database = world,
+                from = from,
+                to = nextSeason,
+                random = CareerRandom(careerRandom.matchSeed("world:$year")),
+                tuning = tuning,
+                exclude = setOf(subject.id),
+            )
+            world = nextWorld
+            retired += worldReport.retired.size
+            debutants += worldReport.debutants.size
             if (to.isBefore(nextSeason)) {
                 // Skip the off-season and a player whose birthday falls in it
                 // never ages at all - which is exactly what this report showed
@@ -139,6 +168,7 @@ object CareerReport {
 
         println()
         summarise(career, checkNotNull(position))
+        println("        $retired cricketers retired around him, $debutants came through")
     }
 
     private fun load(directory: String): SeedDatabase? {
@@ -155,6 +185,14 @@ object CareerReport {
     private const val HOME = "IND"
     private const val HOME_REGION = "Maharashtra"
     private const val START_AGE = 18L
+
+    /**
+     * The potential the subject is drawn with.
+     *
+     * Not where he starts - he starts at his district side like everybody else.
+     * This is how good he could become.
+     */
+    private val PROSPECT_LEVEL = LadderLevel.INTERNATIONAL
 
     /** Days charged for the last match, so a five-day Test is inside the season. */
     private const val LAST_MATCH_DAYS = 6L

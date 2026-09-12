@@ -206,7 +206,7 @@ object Progression {
             )
             val ranked = Selection.score(squad + player, context, personality, random, tuning.selection)
             val rank = ranked.indexOfFirst { it.player.id == player.id }
-            if (rank < 0) null else Claim(team.id, rank + 1, squad.size - tuning.progression.callUpMargin)
+            if (rank < 0) null else Claim(team.id, rank + 1, Squads.XI + tuning.progression.callUpMargin)
         }
         .minByOrNull { it.rank }
 

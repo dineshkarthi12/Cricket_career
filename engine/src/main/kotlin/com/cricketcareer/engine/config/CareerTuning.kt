@@ -19,6 +19,7 @@ data class CareerTuning(
     val progression: ProgressionTuning = ProgressionTuning(),
     val contracts: ContractTuning = ContractTuning(),
     val world: WorldTuning = WorldTuning(),
+    val worldAgeing: WorldAgeingTuning = WorldAgeingTuning(),
 ) {
     companion object {
         /** The calibration reference. Every career test measures against this. */
@@ -397,17 +398,25 @@ data class TrainingTuning(
  */
 data class ProgressionTuning(
     /**
-     * How many squad places clear of the last man a player must be before the
-     * rung above takes him.
+     * Places outside the XI a player may rank in the side above and still be
+     * called up.
      *
-     * A call-up is a place in a *squad*, not in an XI — a young player is
-     * picked to be around the side, and the XI is a separate argument had every
-     * match. So the test is whether he would be named at all, and the margin is
-     * what stops that being "level with the man they were about to release":
-     * two means he has to be clearly ahead of the fringe rather than equal to
-     * it. Raising it makes the ladder longer and debuts later.
+     * A call-up is a place in a squad, but the squad place has to *mean*
+     * something: a man named eighteenth of eighteen is not in the plans, he is
+     * a net bowler. Judging it on squad size alone promoted a district
+     * cricketer to an international in eight seasons and then left him carrying
+     * drinks for three, with twenty-seven omissions a year and no cricket in
+     * them - technically a career, unmistakably not one.
+     *
+     * Zero: a side calls a player up when it intends to *play* him. Anything
+     * looser and a call-up stops being a reward and becomes a sentence - two
+     * places outside the XI reads fine on paper and produced three seasons of
+     * eighteen omissions and no cricket, because the XI that ranked above him
+     * in April still ranks above him in August.
+     *
+     * Raising it makes the ladder easier to climb and much harder to play on.
      */
-    val callUpMargin: Int = 2,
+    val callUpMargin: Int = 0,
 
     /**
      * Share of his side's matches a player must play to keep his place.

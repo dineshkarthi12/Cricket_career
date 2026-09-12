@@ -438,6 +438,19 @@ reasoning:
 4. **Sides reviewed things they could see would be umpire's call.** They now
    discount the band before deciding it is worth a resource.
 
+### Known calibration gap: the top of the score distribution
+
+A printed twenty-two season career of an international-potential batter came
+back with a highest score of **437** and a second-highest of 412. The reduced
+model draws scores from an exponential, whose tail is a shade too fat at the
+very top: over a four-hundred-innings career it produces a world-record score
+about once, which is once too often.
+
+The aggregate bands — average, strike rate, ducks, hundreds — are all met, so
+this is the extreme tail only. Fixing it means a sub-exponential tail and a
+re-fit of `WorldTuning`; logged here rather than left to be rediscovered as a
+bug in the career layer.
+
 ### Known calibration gap: ties
 
 Measured on the reference sides and pitch, about **2%** of limited-overs

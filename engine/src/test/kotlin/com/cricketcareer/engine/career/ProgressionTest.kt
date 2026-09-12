@@ -143,9 +143,10 @@ class ProgressionTest {
     fun `a call-up records what he had to beat and who wanted him`() {
         val outcome = review(player("YOU", 90), world(stateRating = 40), district)
 
-        // Eighteen in the squad, two places clear of the last man.
-        assertEquals(16, outcome.required)
-        assertTrue(checkNotNull(outcome.claim) <= 16)
+        // He had to rank inside the XI: a side calls a player up when it means
+        // to play him, not to give him a squad number.
+        assertEquals(Squads.XI, outcome.required)
+        assertTrue(checkNotNull(outcome.claim) <= Squads.XI)
         assertEquals("IND-MH", outcome.suitor)
     }
 

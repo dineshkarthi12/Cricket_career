@@ -277,11 +277,13 @@ A player nobody has picked all summer is not assessed by the rung above at all.
 That is the whole cost of a season spent carrying drinks, and without it being
 overlooked has no consequence.
 
-**Known limitation.** Until the world simulation ages the rest of the database
-(§11, tier 3), everyone a player competes with is the cricketer the seed file
-froze: they never improve, never decline and never retire. A career played
-against them is harder at the top and easier at the bottom than it should be,
-and the omission counts in the career report read high because of it.
+### A call-up means he plays
+
+`callUpMargin` is zero: a side calls a player up when it intends to play him.
+Anything looser and a call-up stops being a reward and becomes a sentence. Two
+places outside the XI reads fine on paper and produced three seasons of eighteen
+omissions and no cricket, because the XI that ranked above him in April still
+ranks above him in August.
 
 ---
 
@@ -309,6 +311,51 @@ What matters here is what it hands the rest of this document:
 ---
 
 ## 11. The world simulation
+
+### A year happening to everybody else
+
+`WorldAgeing` advances the whole database one season: every cricketer gets a
+year older, a year better or worse, and some of them stop. Their places go to
+people who were not there when the player started.
+
+Without it the world is a photograph. A career ends against the men it started
+against, and a place in a side never opens up through anything but the player's
+own improvement.
+
+Three things it has to get right, each of which was wrong first:
+
+- **The world keeps its size.** One replacement per *retired player*, not per
+  squad vacancy. A state association fields a red-ball side and a white-ball
+  side from the same eighteen men, so one retirement empties two slots;
+  refilling each separately grew the shipped world by a sixth over twenty
+  seasons and quietly diluted every side it touched.
+- **Replacements are the kind of cricketer that rung produces.** No age is
+  forced — the generator already knows what a player at a level looks like.
+  Forcing every replacement in at twenty filled the international side with
+  players who had not developed yet and cost it a tenth of its standard over
+  twenty seasons.
+- **They played a season; it simply was not simulated.** The career clock decays
+  match sharpness on every day without a match, so running the world through it
+  left two thousand nine hundred professionals at the rust floor all year. The
+  career layer then compared a player fresh off his own season against a squad
+  that looked as though it had spent the winter in bed: call-ups were won on
+  rust rather than cricket, and the promoted player was never picked once the
+  new season levelled everybody up again.
+
+Retirement is age **and** decline, and the second is what makes it a decision
+rather than a birthday: a thirty-five-year-old still worth his place goes on,
+and one being carried does not.
+
+The user's own player is excluded. He is advanced day by day through the cricket
+he actually played, and passing him through here would age him twice.
+
+Measured over twenty seasons of the shipped world: population stable at 2,903,
+every squad full, mean age settling near 29, and the international side holding
+its standard to within 4%.
+
+---
+
+### Tiering
 
 Three tiers, as decided in `docs/OPEN_QUESTIONS.md` Q1:
 
