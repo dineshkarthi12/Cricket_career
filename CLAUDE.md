@@ -255,9 +255,9 @@ tests, wait for approval.
 | 1 | Core data model, serialization, fictional player generator | Done |
 | 2 | Match engine v1: full six-stage pipeline, T20 only, hit T20 calibration | Done |
 | 3 | List A and multi-day: pitch evolution, new ball, declarations, follow-on, DLS, weather | Done |
-| 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | Not started |
+| 4 | Fielding, catching, run outs, DRS in full detail; re-calibrate | **Partly done — DRS complete and calibrated; deepening the fielding, catching and run-out models outstanding** |
 | 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
-| 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` done and tested; `:app` written but never compiled** |
+| 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` covers match, scorecard, charts, career, profile, review, rain, training and selection, all tested; `:app` written but never compiled** |
 | 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | **In progress — editable seed database, fixtures, ladder and progression done; save/load, difficulty, records and retirement outstanding** |
 | 8 | Performance, battery, APK size, accessibility, polish | Not started |
 
