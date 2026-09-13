@@ -52,6 +52,18 @@ data class FieldingResolution(
     val fieldedAtMetres: Double,
     val reachedBoundary: Boolean,
     val clearedBoundary: Boolean,
+    /**
+     * How hard the chance was, on the same scale the catch model works in, or
+     * null when there was no chance.
+     *
+     * Kept rather than thrown away because "brilliant catch" and "regulation
+     * catch" are different sentences, and the difference is already computed —
+     * discarding it meant commentary had to guess from the outcome, which is
+     * how you end up calling a simple one at midwicket a screamer.
+     */
+    val catchDifficulty: Double? = null,
+    /** Whether a run out was completed by hitting the stumps rather than by a relay. */
+    val directHit: Boolean = false,
 )
 
 /** Everything Stage 6 produced, including the scoring result. */
@@ -86,15 +98,24 @@ data class CommentaryFacts(
     val droppedBy: FieldPosition?,
     val caughtBy: FieldPosition?,
     val throughVacant: FieldPosition?,
+    /** A run out completed by hitting the stumps, rather than by a relay. */
+    val directHit: Boolean = false,
+    /**
+     * How hard the catch was, or null when there was no chance.
+     *
+     * Here so that "brilliant catch" and "regulation catch" are different
+     * sentences. Commentary that has to infer difficulty from the outcome ends
+     * up calling a simple one at midwicket a screamer.
+     */
+    val catchDifficulty: Double? = null,
 )
 
 /**
  * Stage 6 — trajectory, fielding and dismissal.
  *
- * Phase 2 covers what a T20 needs: wides and no-balls decided geometrically,
- * bowled, lbw with umpire error, caught with real drops, stumped, run out, byes.
- * Phase 4 deepens the fielding, running and DRS models; the interfaces here are
- * shaped so that can happen without the other stages noticing.
+ * Wides and no-balls decided geometrically, bowled, lbw with ball tracking a
+ * review can be taken on, caught with real drops and a difficulty a commentator
+ * can read, stumped, run out at either end by a direct hit or a relay, byes.
  *
  * See docs/SIMULATION_MODEL.md §9.
  */
@@ -199,10 +220,11 @@ object Stage6Outcome {
         val runOut = runs.runOutVictim?.let { victim ->
             Dismissal(DismissalMode.RUN_OUT, victim, bowler = null, fielder = fielding.nearestFielder?.player)
         }
+        val resolved = fielding.copy(directHit = runs.directHit)
 
         return DeliveryResolution(
             trajectory = trajectory,
-            fielding = fielding,
+            fielding = resolved,
             outcome = DeliveryOutcome(
                 runsOffBat = runs.runs,
                 noBall = noBall,
@@ -217,6 +239,8 @@ object Stage6Outcome {
                 droppedBy = if (fielding.dropped) fielding.nearestFielder?.position else null,
                 caughtBy = null,
                 throughVacant = if (fielding.reachedBoundary) null else fielding.nearestFielder?.position,
+                directHit = runs.directHit,
+                catchDifficulty = fielding.catchDifficulty,
             ),
         )
     }
@@ -587,6 +611,7 @@ object Stage6Outcome {
                     nearestFielder = chanceTaker, wasChance = genuine, caught = true, dropped = false,
                     misfielded = false, fieldedAtMetres = chanceTaker.position.distanceMetres,
                     reachedBoundary = false, clearedBoundary = false,
+                    catchDifficulty = catchDifficulty,
                 )
             }
             if (genuine) {
@@ -595,6 +620,7 @@ object Stage6Outcome {
                     nearestFielder = chanceTaker, wasChance = true, caught = false, dropped = true,
                     misfielded = false, fieldedAtMetres = chanceTaker.position.distanceMetres,
                     reachedBoundary = false, clearedBoundary = false,
+                    catchDifficulty = catchDifficulty,
                 )
             }
         }
@@ -785,7 +811,40 @@ object Stage6Outcome {
         val runs: Int,
         val crossed: Boolean,
         val runOutVictim: com.cricketcareer.engine.model.player.PlayerId?,
+        /** Whether the stumps were hit by the throw itself. */
+        val directHit: Boolean = false,
     )
+
+    /**
+     * Which batter is out, when a run out happens on the [attemptedRun]th run.
+     *
+     * The man running *to* the end the ball is thrown to. Two facts decide it:
+     *
+     *  - **Which end the throw goes to.** A ball fielded in front of square is
+     *    nearer the bowler's end; one behind square is nearer the keeper's. A
+     *    fielder throws to the end he can reach, not the one he would prefer.
+     *  - **Whose turn it is at that end.** The two batters swap ends on every
+     *    completed run, so on an odd-numbered attempt the striker is running to
+     *    the bowler's end and on an even one he is coming back.
+     *
+     * Before this the striker was out every single time, which is wrong about
+     * half the time and — for a game about one cricketer — wrong in the way
+     * that matters most: he could never be run out backing up.
+     */
+    private fun runOutVictim(
+        context: DeliveryContext,
+        trajectory: Trajectory,
+        attemptedRun: Int,
+    ): com.cricketcareer.engine.model.player.PlayerId {
+        val azimuth = ((trajectory.azimuthDegrees % 360.0) + 360.0) % 360.0
+        val throwToBowlersEnd = azimuth < 90.0 || azimuth > 270.0
+        val strikerIsRunningToBowlersEnd = attemptedRun % 2 == 1
+        return if (throwToBowlersEnd == strikerIsRunningToBowlersEnd) {
+            context.striker.id
+        } else {
+            context.nonStriker.id
+        }
+    }
 
     private fun runsFor(
         context: DeliveryContext,
@@ -877,7 +936,18 @@ object Stage6Outcome {
                 val throwArm = fielding.nearestFielder
                     ?.let { context.fielderSkill(it.player, Attribute.THROW_ARM) } ?: 0.5
                 if (rng.chance(danger * (tuning.directHitBase + 0.35 * throwArm))) {
-                    return RunResult(runs, crossed = runs % 2 == 1, runOutVictim = context.striker.id)
+                    // A direct hit from thirty metres and a relay to the keeper
+                    // are different pieces of cricket, and a scorecard names a
+                    // different fielder for each.
+                    val closeEnough = (1.0 - fielding.fieldedAtMetres / tuning.directHitRangeMetres)
+                        .coerceIn(0.0, 1.0)
+                    val direct = rng.chance((tuning.directHitShare * (0.5 + closeEnough)).coerceIn(0.0, 1.0))
+                    return RunResult(
+                        runs = runs,
+                        crossed = runs % 2 == 1,
+                        runOutVictim = runOutVictim(context, trajectory, runs + 1),
+                        directHit = direct,
+                    )
                 }
             }
             runs++
@@ -886,6 +956,7 @@ object Stage6Outcome {
 
         return RunResult(runs, crossed = runs % 2 == 1, runOutVictim = null)
     }
+
 
     /** How long the ball itself takes to reach where it was gathered. */
     private fun ballTravelTime(trajectory: Trajectory, distanceMetres: Double): Double {

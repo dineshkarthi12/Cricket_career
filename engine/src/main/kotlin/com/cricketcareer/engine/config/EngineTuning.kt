@@ -52,7 +52,16 @@ data class CalibrationKnobs(
     /** Widens or narrows every bowler's execution error. Moves dot %, boundary %, wicket rate; wides follow. */
     val executionSpreadScale: Double = 1.0,
 
-    /** Scales how badly the batter mis-reads the ball. The primary wicket-rate control. */
+    /**
+     * Scales how badly the batter mis-reads the ball. The primary wicket-rate
+     * control.
+     *
+     * Held below 1.0 to keep the run rate down. That is treating a symptom -
+     * see docs/SIMULATION_MODEL.md §15 on the play-and-miss surplus, which is
+     * the defect underneath it. Dot % and balls per wicket move in *opposite*
+     * directions on this knob, which CLAUDE.md §5 names as the signal to stop
+     * turning it and fix the model instead.
+     */
     val perceptionErrorScale: Double = 0.96,
 
     /** Scales every shot's tolerance ellipsoid. Up means better contact: more boundaries, fewer edges. */
@@ -507,6 +516,21 @@ data class OutcomeTuning(
      * generous risk margin here floods the game with them.
      */
     val directHitBase: Double = 0.045,
+
+    /**
+     * Share of successful run outs completed by hitting the stumps directly,
+     * rather than by a throw to the keeper or the bowler.
+     *
+     * A direct hit from the deep and a relayed throw to the keeper are two
+     * different pieces of cricket and a scorecard names a different fielder for
+     * each. Roughly a third, which is about what a real season looks like;
+     * close-in run outs skew direct, throws from the boundary skew relayed, and
+     * [directHitRangeMetres] is where the balance tips.
+     */
+    val directHitShare: Double = 0.34,
+
+    /** Beyond this a throw is far more likely to be gathered and relayed than to hit. */
+    val directHitRangeMetres: Double = 30.0,
     val riskyRunMarginSeconds: Double = 0.12,
 
     /**

@@ -906,10 +906,85 @@ Open items where the model above makes a choice that should be challenged.
    make the career arc work; it needs a sanity check that a good player does not
    become permanently "solved".
 6. **Play-and-miss sits around 19% of deliveries**, against a real figure nearer
-   10-12%. The aggregate bands are all met, so the surplus is being absorbed
-   somewhere — most likely as beaten balls that should be edges. Worth chasing
-   in Phase 4 when the fielding model is deepened.
+   10-12%. **Diagnosed in Phase 4, not yet fixed** — see below.
 7. **The hazard curve falls over the first twenty balls and then flattens and
    rises slightly.** The early fall is the settling model working. The late rise
    is a set batter accelerating, which is right for Twenty20 but needs checking
    against the longer formats in Phase 3, where it should keep falling.
+
+---
+
+## 16. The play-and-miss surplus: what it is, and why it is still here
+
+The single largest known defect in the engine, chased in Phase 4 with
+measurements and left in place deliberately. Written down so the next attempt
+starts from the evidence rather than from the beginning.
+
+### It is one defect, seen from four sides
+
+Measured over 600 Twenty20 matches through `--report=calibration`:
+
+| Metric | Measured | Band | |
+|---|---:|---|---|
+| Run rate (per over) | 8.81 | 8.0 – 8.8 | over |
+| Dot ball % | 36.56 | 30 – 36 | over |
+| Balls per wicket | 19.12 | 16 – 19 | over |
+| Play-and-miss % | ~19 | ~10 – 12 (real) | over |
+
+All four are the same thing. **The bat's edge is modelled as a cliff.** A ball
+inside the tolerance envelope makes contact; a ball a millimetre outside it
+passes through thin air. Real bats have an edge, so the deliveries that should
+be feathering through to the cordon are instead beaten — which is a forced dot
+(dot % up), a ball that cannot be caught (balls per wicket up), and a batter who
+survives to score later (run rate up).
+
+### The knob cannot fix it, and that is the proof
+
+`perceptionErrorScale` is the primary wicket-rate control. Swept:
+
+| Scale | Run rate | Dot % | Balls/wkt |
+|---:|---:|---:|---:|
+| 0.96 (shipped) | 8.83 | 36.5 | 19.3 |
+| 1.00 | 8.59 | 37.4 | 19.3 |
+| 1.03 | 8.32 | 38.6 | 18.2 |
+
+Balls per wicket wants the knob **up**; dot % wants it **down**. CLAUDE.md §5
+names exactly this: *"when two bands can only be satisfied by opposite moves of
+one knob, stop turning it — that is the signal a Tier 2 model is wrong."*
+
+### The fix that works, and the one thing it breaks
+
+Feathering the edge — treating a ball within about 1.2× the envelope as an
+outside or inside edge rather than a miss, chosen geometrically with no draw —
+puts **all four bands inside their targets**:
+
+| | Run rate | Dot % | Boundary % | Balls/wkt | Catch % |
+|---|---:|---:|---:|---:|---:|
+| Shipped | 8.83 | 36.5 | 17.5 | 19.3 | — |
+| Feather 1.20, perception 1.00, catch 0.90 | 8.70 | 35.7 | 17.3 | 18.5 | 79.1 |
+
+It also lets `perceptionErrorScale` go back to 1.0 — one fewer admission that
+the model needed help.
+
+**What it breaks:** the dismissal hazard stops falling as a batter settles. A
+new batter's extra mis-reads used to produce *beaten* balls, which can be bowled
+or lbw; feathered, they become edges that in a Twenty20 field often fly through
+a vacant cordon for runs. Measured, a new batter's hazard fell from clearly
+above a set one's to level with it.
+
+Raising `settleWeight` to compensate fixes the Twenty20 hazard and breaks the
+multi-day one, and pushes dot % back out — the opposite-directions signal again,
+one level down.
+
+### What the next attempt needs
+
+Not another knob. The feather is right; what is missing is that a feathered edge
+should carry to the cordon far more often than a middled one does, and the
+trajectory model currently gives it the same elevation distribution as any other
+outside edge. Getting that right should restore the wickets the feather gives
+away, and with them the settling hazard.
+
+Until then the shipped engine keeps the cliff, keeps `perceptionErrorScale` at
+0.96, and sits **on** the run-rate band's ceiling rather than inside it — a
+margin so thin that any change touching the running stream tips it over. That
+fragility is itself part of the defect.

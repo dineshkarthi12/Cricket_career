@@ -438,6 +438,27 @@ reasoning:
 4. **Sides reviewed things they could see would be umpire's call.** They now
    discount the band before deciding it is worth a resource.
 
+### The Phase 4 re-calibration attempt, 2026-09-13
+
+Attempted, measured, and **reverted**. The full evidence is in
+`docs/SIMULATION_MODEL.md` §16; the short version:
+
+- Three Twenty20 bands (run rate, dot %, balls per wicket) sit marginally
+  **outside** their targets at 600 matches, and have done for some time. The
+  `T20CalibrationTest` was passing on a smaller sample — passing that test is
+  not evidence the engine is in band, which is worth knowing on its own.
+- They are one defect: the bat's edge is a cliff, so balls that should feather
+  to the cordon are beaten instead.
+- A fix exists and puts all four bands inside their targets. It costs the
+  settling hazard, and the compensating knob fails the same
+  opposite-directions test. Reverted rather than shipped half-calibrated.
+
+The engine therefore sits **on** the run-rate ceiling rather than inside it,
+with a margin thin enough that any change touching the running stream tips it.
+Overthrows — a correct and finished feature — were held back from Phase 4 for
+exactly this reason: at a realistic one-in-three-hundred-balls rate they add
+about 0.03 an over, and there is not 0.03 of room.
+
 ### Known calibration gap: the top of the score distribution
 
 A printed twenty-two season career of an international-potential batter came
