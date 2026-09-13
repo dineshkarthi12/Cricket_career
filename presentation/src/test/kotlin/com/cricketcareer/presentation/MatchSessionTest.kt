@@ -14,6 +14,22 @@ class MatchSessionTest {
     private val demo = DemoMatch.simulate(seed = 77)
     private val session = demo.session
 
+    /**
+     * An innings that definitely contains at least two wickets.
+     *
+     * The navigation tests below are about the control, not about what seed 77
+     * happens to produce. Pinning them to one seed made them a hidden
+     * regression test on the match engine: re-calibrating the running model
+     * changed the innings under them and a *presentation* test went red for a
+     * reason that had nothing to do with presentation. So the fixture states
+     * the precondition it actually needs and searches deterministically for a
+     * seed that meets it.
+     */
+    private val twoWicketSession: MatchSession = (77L..200L)
+        .asSequence()
+        .map { DemoMatch.simulate(seed = it).session }
+        .first { candidate -> candidate.toEnd().state.feed.count { it.wicket } >= 2 }
+
     @Test
     fun `a fresh session is sitting before the first ball`() {
         assertEquals(0, session.cursor)
@@ -36,7 +52,7 @@ class MatchSessionTest {
     fun `next wicket stops on the wicket, not after it`() {
         // The point of the control is to arrive at the moment the innings
         // turned, and the delivery that took it is the one worth reading.
-        val atWicket = session.toNextWicket()
+        val atWicket = twoWicketSession.toNextWicket()
         assertTrue(atWicket.cursor > 0)
         assertEquals("W", atWicket.state.feed.first().chip)
         assertTrue(atWicket.state.feed.first().wicket)
@@ -44,7 +60,7 @@ class MatchSessionTest {
 
     @Test
     fun `next wicket from a wicket finds the following one`() {
-        val first = session.toNextWicket()
+        val first = twoWicketSession.toNextWicket()
         val second = first.toNextWicket()
         assertTrue(second.cursor > first.cursor) { "stuck at ${first.cursor}" }
         assertTrue(second.state.feed.first().wicket)

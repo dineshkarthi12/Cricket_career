@@ -1002,3 +1002,89 @@ Not everything, and none of it caused by this:
 The first two say the same thing the T20 numbers used to: the longer formats
 have not had a calibration pass of their own. Phase 2's brief was "T20 only,
 hit T20 calibration", and that is what has been held.
+
+---
+
+## 17. Running between the wickets: the call, not the stopwatch
+
+Phase 4 left run outs at 8.2% of Twenty20 dismissals and 8.6% of List A ones
+against a band of 4–6%, and the Twenty20 dot rate one and a half points above
+its band. Both had the same cause, and it was in the same place: the batters
+knew something they cannot possibly know.
+
+### What was wrong
+
+The running model computes a **margin** — the seconds between the batter
+reaching the far crease and the ball reaching the stumps — and the old code let
+the batter read it exactly. He set off whenever the true margin was better than
+−0.13 s, and a fixed probability then decided whether the fielding side
+converted.
+
+That is not a run out. It is a batter looking at a stopwatch, seeing that he is
+a tenth of a second short, and going anyway. Three things followed from it:
+
+1. **Every run out was a dice roll over a run the batter could see he would
+   lose.** The batter's skill at *running between the wickets* only moved how
+   deep into the red he would go, never how well he read it, so the attribute
+   with "judgement" in its name had nothing to judge.
+2. **Run outs could only be traded against singles.** `riskyRunMarginSeconds`
+   was the one knob that moved either, and it moved both the same way: sweeping
+   it from 0.12 to 0.50 took the Twenty20 dot rate from 40.9% to 32.5% and the
+   run-out share from 6.2% to 27.1%. Two bands, opposite moves of one knob —
+   the CLAUDE.md §5 signal that the model, not the number, is wrong.
+3. **The man at the other end did not exist.** Running is the only thing in
+   cricket two batters decide at once, and one of them was not consulted.
+
+### What it does now
+
+The batter judges the margin and acts on the judgement; the fielding side acts
+on the truth.
+
+```
+judged        = margin + N(0, σ(judgement))
+partnerJudged = margin + N(0, σ(partnerJudgement))
+```
+
+σ runs from 0.13 s for the best runner in the game to 0.38 s for the worst
+(`runJudgementSigmaBest` / `Worst`). The striker calls on `judged`; the
+non-striker can **send him back** if his own read is clearly red. That second
+read is a veto on an obvious loss, not a second opinion on a close one — which
+matters, because the minimum of two unbiased reads is biased low, and making
+both batters judge every single from scratch made the pair systematically
+pessimistic and put four points on the dot rate in all three formats at once.
+
+A run out is now what it is in cricket: **the call was wrong.** He went because
+he thought it was there. The worse his judgement, the wider his error, the more
+often he is short — and the attribute finally does the thing it is named after.
+
+Two supporting corrections came out of the same work:
+
+- **The conversion scale is physical.** How far behind the throw the batter is
+  used to be measured in units of his own *willingness*, which made a good
+  runner more likely to be out for the same true margin, because his willingness
+  figure was smaller. It is now `runOutCertaintySeconds`, a constant: 0.8 s
+  behind and the throw gets you every time, a tenth behind and you mostly dive
+  in. Widening it from 0.16 s to 0.80 s is what finally separated the dot rate
+  from the run-out rate — the two had been the same measurement.
+- **Turning is slower than running.** `turnCostSeconds` 1.00 → 1.15. Twos are
+  the only thing this touches, so it trims the run rate without moving the dot
+  rate at all.
+
+### What it bought
+
+| | Before | After | Band |
+|---|---|---|---|
+| T20 dot ball % | 36.5 | 34.5 | 30–36 |
+| T20 run out % of dismissals | 8.2 | 5.5 | 4–6 |
+| T20 run rate | 8.83 | 8.79 | 8.0–8.8 |
+| List A run out % | 8.6 | 6.0 | 4–6 |
+| Four-day run out % | 1.9 | 0.9 | — |
+
+Twenty20 now meets **every** band in the harness. The Twenty20 dot rate had been
+out since the first calibration in Phase 3 and is the last of the three faults
+the brief's Twenty20 targets exposed.
+
+The four-day figure is deliberately low and is not a miss: the brief states
+dismissal shares "all formats combined", and Test cricket really does have
+almost no run outs. What the model now produces — 5.5%, 6.0%, 0.9% by format —
+is the shape of the real game rather than one number copied into three.

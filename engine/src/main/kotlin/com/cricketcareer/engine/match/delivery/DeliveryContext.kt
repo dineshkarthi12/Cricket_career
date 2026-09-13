@@ -63,6 +63,14 @@ class DeliveryContext(
     fun strikerSkill(attribute: Attribute): Double = EffectiveSkill.of(striker, attribute)
 
     /**
+     * A batting attribute of the man at the other end.
+     *
+     * Running between the wickets is the one thing in the game decided by both
+     * batters at once, so it is the one place a delivery needs him.
+     */
+    fun nonStrikerSkill(attribute: Attribute): Double = EffectiveSkill.of(nonStriker, attribute)
+
+    /**
      * A fielder's attribute. Falls back to an average fielder when the roster
      * does not name him, so a malformed field setting degrades rather than
      * crashing a whole season of simulation.

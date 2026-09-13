@@ -543,7 +543,7 @@ data class OutcomeTuning(
     /** Running: batter speed range in m/s, and the cost of turning for a second run. */
     val runSpeedSlowest: Double = 6.6,
     val runSpeedFastest: Double = 8.6,
-    val turnCostSeconds: Double = 1.00,
+    val turnCostSeconds: Double = 1.15,
 
     /**
      * Time for a fielder who has cut the ball off inside the ring to gather it
@@ -593,7 +593,37 @@ data class OutcomeTuning(
 
     /** Beyond this a throw is far more likely to be gathered and relayed than to hit. */
     val directHitRangeMetres: Double = 30.0,
-    val riskyRunMarginSeconds: Double = 0.12,
+    val riskyRunMarginSeconds: Double = 0.34,
+
+    /**
+     * How badly a batter misjudges the margin on a run, in seconds, for the
+     * best runner in the game and the worst.
+     *
+     * A batter cannot see the pick-up, the turn or the strength of the arm. He
+     * calls off the ball and commits, and what he commits to is an *estimate*.
+     * Run outs in this model are that estimate turning out to be wrong — a
+     * misjudgement — rather than a dice roll over a run he could plainly see he
+     * was going to lose. Before this, a batter knew the true margin and set off
+     * anyway 79% of the time when it was already red, and run outs ran at
+     * 8-9% of dismissals against a band of 4-6%.
+     *
+     * Widening this makes running between the wickets more dangerous in every
+     * format at once; narrowing it makes it nearly safe and pushes dismissals
+     * back onto the bowlers.
+     */
+    val runJudgementSigmaBest: Double = 0.13,
+    val runJudgementSigmaWorst: Double = 0.38,
+
+    /**
+     * How far behind the throw a batter has to be, in seconds, before a throw
+     * that hits gets him every time.
+     *
+     * This is the physics of the run out and has nothing to do with how brave
+     * the batter was: scaling it by his willingness, as it used to be, made a
+     * *good* runner more likely to be out for the same true margin, because his
+     * willingness figure was smaller.
+     */
+    val runOutCertaintySeconds: Double = 0.80,
 
     /**
      * Seconds of margin a batter wants before he sets off without thinking.

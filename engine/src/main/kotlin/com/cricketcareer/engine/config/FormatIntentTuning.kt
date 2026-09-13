@@ -53,7 +53,7 @@ data class FormatIntentTuning(
             latePhaseRisk = 0.98,
             leavePatience = 0.20,
             leaveBallCost = 2.6,
-            singleAppetiteBonus = 1.22,
+            singleAppetiteBonus = 0.88,
         ),
         MatchFormat.FORTY_OVER.id to FormatIntent(
             baseRisk = 0.28,
@@ -71,7 +71,7 @@ data class FormatIntentTuning(
             latePhaseRisk = 0.86,
             leavePatience = 0.45,
             leaveBallCost = 2.0,
-            singleAppetiteBonus = 0.30,
+            singleAppetiteBonus = 0.18,
         ),
     ),
 

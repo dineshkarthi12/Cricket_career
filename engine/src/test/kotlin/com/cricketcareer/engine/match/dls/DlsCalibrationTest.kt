@@ -46,8 +46,13 @@ class DlsCalibrationTest {
         const val REFERENCE_OVERS = 50
         const val BALLS_PER_OVER = 6
 
-        /** Ignore states seen too rarely for a mean to mean anything. */
-        const val MINIMUM_OBSERVATIONS = 200
+        /**
+         * Ignore states seen in too few *innings* for a mean to mean anything.
+         *
+         * Stated in innings, not in balls: a hundred balls drawn from twelve
+         * innings is twelve samples of a final score, not a hundred.
+         */
+        const val MINIMUM_INNINGS = 60
     }
 
     /**
@@ -61,25 +66,60 @@ class DlsCalibrationTest {
      */
     private class Observations {
         var total = 0.0
-        var sumOfSquares = 0.0
         var balls = 0L
         var count = 0
 
-        fun add(runs: Int, ballsRemaining: Int) {
+        // Per-innings sums, which is what makes the standard error honest.
+        //
+        // A side spends several balls in the same (overs left, wickets down)
+        // cell, and every one of those balls records the *same* final score.
+        // Treating them as independent samples overstated the precision of a
+        // well-visited cell by a factor of two or more, and the test then
+        // failed on a table that was well inside the noise. The observations
+        // are clustered by innings, so the standard error has to be too.
+        private val clusterSum = mutableListOf<Double>()
+        private val clusterCount = mutableListOf<Int>()
+        private var currentInnings = -1
+
+        fun add(innings: Int, runs: Int, ballsRemaining: Int) {
             total += runs
-            sumOfSquares += runs.toDouble() * runs
             balls += ballsRemaining
             count++
+            if (innings != currentInnings) {
+                currentInnings = innings
+                clusterSum += 0.0
+                clusterCount += 0
+            }
+            clusterSum[clusterSum.lastIndex] = clusterSum.last() + runs
+            clusterCount[clusterCount.lastIndex] = clusterCount.last() + 1
         }
 
         val mean: Double get() = total / count
         val meanOversRemaining: Double get() = balls.toDouble() / count / BALLS_PER_OVER
 
-        /** Standard error of the mean. */
+        /** Innings contributing to this cell. The unit the sampling error is in. */
+        val innings: Int get() = clusterSum.size
+
+        /**
+         * Cluster-robust standard error of the mean, clustered on the innings.
+         *
+         * The usual sandwich estimator: sum the squared cluster residuals and
+         * divide by the square of the total count. With one ball per innings it
+         * reduces to the ordinary standard error.
+         */
         val standardError: Double
             get() {
-                val variance = (sumOfSquares - total * total / count) / (count - 1)
-                return sqrt(variance / count)
+                val average = mean
+                var sum = 0.0
+                for (i in clusterSum.indices) {
+                    val residual = clusterSum[i] - clusterCount[i] * average
+                    sum += residual * residual
+                }
+                val clusters = clusterSum.size
+                if (clusters < 2) return Double.MAX_VALUE
+                // Small-cluster correction, as for any clustered estimator.
+                val correction = clusters.toDouble() / (clusters - 1)
+                return sqrt(correction * sum) / count
             }
     }
 
@@ -117,7 +157,7 @@ class DlsCalibrationTest {
             ).simulate()
 
             val finalScore = events.lastOrNull()?.scoreAfter ?: 0
-            totals.add(finalScore, totalBalls)
+            totals.add(i, finalScore, totalBalls)
 
             var scoreBefore = 0
             var wicketsBefore = 0
@@ -128,7 +168,7 @@ class DlsCalibrationTest {
                 if (event.outcome.isLegalBall && wicketsBefore < DuckworthLewis.ALL_OUT) {
                     val ballsRemaining = totalBalls - event.id.legalBallIndex
                     grid[wicketsBefore][ballsRemaining / BALLS_PER_OVER]
-                        .add(finalScore - scoreBefore, ballsRemaining)
+                        .add(i, finalScore - scoreBefore, ballsRemaining)
                 }
                 scoreBefore = event.scoreAfter
                 wicketsBefore = event.wicketsAfter
@@ -147,7 +187,7 @@ class DlsCalibrationTest {
         for (wickets in 0 until DuckworthLewis.ALL_OUT) {
             for (cell in 1..REFERENCE_OVERS) {
                 val observed = sample.grid[wickets][cell]
-                if (observed.count < MINIMUM_OBSERVATIONS) continue
+                if (observed.innings < MINIMUM_INNINGS) continue
                 checked++
 
                 // The table is a percentage, so turn it back into runs through
@@ -163,8 +203,8 @@ class DlsCalibrationTest {
                 // by a few runs without that being a broken table.
                 val tolerance = 4.0 * observed.standardError + ABSOLUTE_SLACK
                 if (abs(predicted - observed.mean) > tolerance) {
-                    misses += "%d down, %.1f overs left: table %.1f, engine %.1f (+- %.1f, n=%d)"
-                        .format(wickets, overs, predicted, observed.mean, tolerance, observed.count)
+                    misses += "%d down, %.1f overs left: table %.1f, engine %.1f (+- %.1f, %d innings)"
+                        .format(wickets, overs, predicted, observed.mean, tolerance, observed.innings)
                 }
             }
         }

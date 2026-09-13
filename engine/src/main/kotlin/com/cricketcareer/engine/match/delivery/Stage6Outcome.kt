@@ -936,17 +936,48 @@ object Stage6Outcome {
         val judgement = context.strikerSkill(Attribute.RUNNING_BETWEEN_WICKETS)
         val runDistance = Geometry.PITCH_LENGTH_M - 2 * Geometry.CREASE_M
 
+        // How wrong each batter's reading of the margin is likely to be.
+        // Everything the pair decides below is decided on their judged margins;
+        // everything the fielding side does is decided on the real one.
+        val partnerJudgement = context.nonStrikerSkill(Attribute.RUNNING_BETWEEN_WICKETS)
+        fun sigmaFor(j: Double) = tuning.runJudgementSigmaWorst -
+            (tuning.runJudgementSigmaWorst - tuning.runJudgementSigmaBest) * j
+        val judgementSigma = sigmaFor(judgement)
+        val partnerSigma = sigmaFor(partnerJudgement)
+
         var runs = 0
         var time = 0.0
         while (runs < 3) {
             val legTime = runDistance / speed + if (runs > 0) tuning.turnCostSeconds else 0.0
             val after = time + legTime
             val margin = availableTime - after
+            // What each of them *thinks* the margin is. A batter calls off the
+            // ball, not off a stopwatch: he cannot see the pick-up, the turn or
+            // the strength of the arm, and the call has to be made before any of
+            // the three has happened. Deciding on the true margin made every run
+            // out a dice roll over a run the batter could see he was losing,
+            // which is not how a run out happens.
+            //
+            // The striker calls; the man at the other end can send him back.
+            // That second read is a *veto on an obvious loss*, not a second
+            // opinion on a close one — "no" is shouted at a run that plainly
+            // is not there, and a tight single the striker fancies is run. So
+            // the partner only stops it when his own read is clearly red.
+            //
+            // Both of them judging every single from scratch and taking the
+            // more cautious view makes the pair systematically pessimistic —
+            // the minimum of two unbiased reads is biased low — and it showed:
+            // the dot rate rose four points in every format at once. Without
+            // the veto at all, one bad read sent them on a run neither could
+            // make, and run outs reached nineteen per cent of dismissals.
+            val judged = margin + rng.nextGaussian() * judgementSigma
+            val partnerJudged = margin + rng.nextGaussian() * partnerSigma
             // A good runner goes for a tight one; a poor one hesitates, or goes
             // when he should not.
             val willingness = tuning.riskyRunMarginSeconds * (1.6 - judgement)
-            if (margin < -willingness) break
-            if (margin < tuning.comfortableRunMarginSeconds) {
+            val partnerWillingness = tuning.riskyRunMarginSeconds * (1.6 - partnerJudgement)
+            if (judged < -willingness || partnerJudged < -partnerWillingness) break
+            if (judged < tuning.comfortableRunMarginSeconds) {
                 // Available, but not comfortable. A push to a close fielder is
                 // arithmetically a single and is refused nearly every time; a
                 // slightly tight one is usually taken. Treating both the same
@@ -955,20 +986,12 @@ object Stage6Outcome {
                 // the ball with his arm cocked.
                 val attackedPenalty = if (attacking) 0.55 else 0.0
                 val formatBonus = context.tuning.formatIntent.forFormat(context.format).singleAppetiteBonus
-                val appetite = if (margin > 0.0) {
-                    tuning.tightSingleAppetite + 0.35 * judgement +
-                        0.20 * context.battingIntent + formatBonus - attackedPenalty
-                } else {
-                    // A run that is already in the red is one a batter turns
-                    // down most of the time. At 0.78 they went anyway and run
-                    // outs reached nineteen per cent of all dismissals.
-                    0.34 + 0.30 * judgement + 0.15 * context.battingIntent +
-                        formatBonus - attackedPenalty
-                }
+                val appetite = tuning.tightSingleAppetite + 0.35 * judgement +
+                    0.20 * context.battingIntent + formatBonus - attackedPenalty
                 if (!rng.chance(appetite.coerceIn(0.03, 0.97))) break
             }
             if (margin < 0.0) {
-                val danger = (-margin / willingness.coerceAtLeast(0.05)).coerceIn(0.0, 1.0)
+                val danger = (-margin / tuning.runOutCertaintySeconds).coerceIn(0.0, 1.0)
                 val throwArm = fielding.nearestFielder
                     ?.let { context.fielderSkill(it.player, Attribute.THROW_ARM) } ?: 0.5
                 if (rng.chance(danger * (tuning.directHitBase + 0.35 * throwArm))) {
