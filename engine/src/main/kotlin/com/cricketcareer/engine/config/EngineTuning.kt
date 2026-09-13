@@ -274,13 +274,19 @@ data class PerceptionTuning(
     /**
      * Settling: perception error is multiplied by `1 + weight * exp(-balls/scale)`.
      *
-     * At 0 balls faced that is 1.75x; by 15 balls 1.12x; by 40 essentially 1.0.
+     * At 0 balls faced that is 1.58x; by 15 balls 1.05x; by 40 essentially 1.0.
+     *
+     * Raised from 0.45 in Phase 4, when feathering the bat's edge gave some of
+     * the settling effect away: a new batter's extra mis-reads used to produce
+     * *beaten* balls, which can be bowled or lbw, and feathered they become
+     * edges that the cordon sometimes puts down. There was no room to raise it
+     * before - it took dot % out of band - and the feather made the room.
      * This single decaying term produces the brief's "far more vulnerable in his
      * first 10-15 balls", a dismissal hazard that *falls* through an innings,
      * and therefore the innings-score distribution Section 3 demands — without
      * ever sampling from a score distribution.
      */
-    val settleWeight: Double = 0.45,
+    val settleWeight: Double = 0.58,
     val settleScaleBalls: Double = 6.0,
 
     /**
@@ -378,6 +384,20 @@ data class ContactTuning(
     val missThreshold: Double = 1.88,
 
     /**
+     * How far past the tolerance envelope a ball still catches the edge of the
+     * bat, as a multiple of [missThreshold].
+     *
+     * A bat has an edge; the envelope does not. See
+     * docs/SIMULATION_MODEL.md §16 for the full diagnosis - in short, modelling
+     * the boundary as a cliff put play-and-miss at 19% of deliveries against a
+     * real 10-12%, and carried dot % and balls per wicket out of band with it.
+     *
+     * Feathering is geometry, not a draw: a ball that clips the bat clips it,
+     * and nothing here is sampled.
+     */
+    val edgeFeatherFactor: Double = 1.12,
+
+    /**
      * How far the bat can actually be put, laterally, measured at the stumps.
      *
      * Asymmetric because a batter's reach is: he can stretch a long way outside
@@ -450,6 +470,48 @@ data class OutcomeTuning(
      * drive travelling at 30 m/s, which put the boundary rate on the floor.
      */
     val interceptReactionSeconds: Double = 0.38,
+
+    /**
+     * Where a feathered edge goes, in degrees above the horizontal, and the
+     * spread around it.
+     *
+     * Shallow, but reliably off the ground: it leaves the bat at about the
+     * height it arrived and reaches the cordon at chest height and the keeper
+     * at his gloves.
+     *
+     * Both numbers are set by where the cordon actually stands - fourteen
+     * metres - because a nick that pitches in front of the keeper is not a
+     * wicket. Given a defensive stroke's own elevation instead, two feathers in
+     * five never got off the ground at all, and the median of the rest carried
+     * 10.7 metres and died in front of him.
+     */
+    val featherElevationDegrees: Double = 13.0,
+    val featherElevationSpread: Double = 2.6,
+
+    /**
+     * Share of the ball's own pace a feathered edge keeps.
+     *
+     * A feather is a deflection rather than a stroke: the bat puts almost
+     * nothing into it and takes almost nothing out. Scoring it by contact
+     * quality, as every other contact is scored, made it the slowest ball on
+     * the field - it died at the batter's feet and the cordon never saw it.
+     *
+     * Tuned so the median feather carries to about where the cordon stands
+     * rather than to a number that sounded physical.
+     */
+    val featherPaceRetained: Double = 0.66,
+
+    /**
+     * Directional spread of a feathered edge, in degrees.
+     *
+     * Tight, and fixed rather than scaled by contact quality. Every other
+     * contact is scattered in proportion to how badly it was struck, which is
+     * right for a stroke and wrong for a deflection: the ball barely changed
+     * direction, so it cannot have changed direction by very much. Left on the
+     * quality scale, feathers sprayed thirty degrees either side of the keeper
+     * and most of them missed the cordon entirely.
+     */
+    val featherAzimuthSpread: Double = 11.0,
 
     /** Fielder reach in metres, and how fast one closes on the ball. */
     val fielderReachMetres: Double = 2.1,

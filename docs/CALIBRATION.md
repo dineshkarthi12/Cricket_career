@@ -319,9 +319,12 @@ Sample: `Fixtures.averageXI` on `Pitch.AVERAGE`, `Weather.AVERAGE`, via
 
 | Format | Innings | Batting average | Strike rate | Balls per wicket |
 |---|---:|---:|---:|---:|
-| T20 | 1200 | 27.62 | 140.4 | 19.7 |
-| List A | 700 | 31.59 | 97.7 | 32.4 |
-| Four-day | 300 | 37.50 | 60.5 | 62.0 |
+| T20 | 1200 | 24.04 | 137.1 | 17.5 |
+| List A | 800 | 29.38 | 96.6 | 30.4 |
+| Four-day | 400 | 33.45 | 59.9 | 55.8 |
+
+*(Re-measured 2026-09-13 after the bat-edge fix. The previous run, before it,
+read 27.62 / 140.4 / 19.7, 31.59 / 97.7 / 32.4 and 37.50 / 60.5 / 62.0.)*
 
 These are the numbers `WorldTuning` is fitted to. **Re-measure whenever the
 match engine's calibration moves** — a divergence between the tiers is a bug,
@@ -438,26 +441,38 @@ reasoning:
 4. **Sides reviewed things they could see would be umpire's call.** They now
    discount the band before deciding it is worth a resource.
 
-### The Phase 4 re-calibration attempt, 2026-09-13
+### The Phase 4 re-calibration, 2026-09-13
 
-Attempted, measured, and **reverted**. The full evidence is in
-`docs/SIMULATION_MODEL.md` §16; the short version:
+The bat's edge was a cliff. Fixed; the full diagnosis is in
+`docs/SIMULATION_MODEL.md` §16. Measured before and after, 600+ matches:
 
-- Three Twenty20 bands (run rate, dot %, balls per wicket) sit marginally
-  **outside** their targets at 600 matches, and have done for some time. The
-  `T20CalibrationTest` was passing on a smaller sample — passing that test is
-  not evidence the engine is in band, which is worth knowing on its own.
-- They are one defect: the bat's edge is a cliff, so balls that should feather
-  to the cordon are beaten instead.
-- A fix exists and puts all four bands inside their targets. It costs the
-  settling hazard, and the compensating knob fails the same
-  opposite-directions test. Reverted rather than shipped half-calibrated.
+| | T20 run rate | T20 dot % | T20 balls/wkt | ODI balls/wkt | FC run rate |
+|---|---:|---:|---:|---:|---:|
+| Band | 8.0–8.8 | 30–36 | 16–19 | 35–40 | 3.0–3.5 |
+| Before | 8.83 ✗ | 36.5 ✗ | 19.3 ✗ | 32.8 ✗ | 3.83 ✗ |
+| After | 8.60 ✓ | 36.5 ✗ | 17.6 ✓ | 30.4 ✗ | 3.79 ✗ |
 
-The engine therefore sits **on** the run-rate ceiling rather than inside it,
-with a margin thin enough that any change touching the running stream tips it.
-Overthrows — a correct and finished feature — were held back from Phase 4 for
-exactly this reason: at a realistic one-in-three-hundred-balls rate they add
-about 0.03 an over, and there is not 0.03 of room.
+Five metrics out became three, and the three that remain are the two formats
+that have never had a calibration pass of their own plus a dot rate half a point
+over. Caught % of dismissals also came back into band, 55.6 → 58.2.
+
+Two things worth carrying forward:
+
+- **The `T20CalibrationTest` was passing on a smaller sample while the engine
+  sat outside its bands.** Passing that test is not evidence the engine is in
+  band. Check the harness report.
+- **`settleWeight` rose from 0.45 to 0.58**, because the feather gives some of
+  the settling effect away — a new batter's extra mis-reads used to produce
+  beaten balls, which can be bowled or lbw. There had been no room to raise it
+  before; the fix created the room. Both hazard-shape tests pass again.
+
+`DlsTuning` and `WorldTuning` were re-fitted afterwards. Both are measured from
+engine output, and the engine moved: a full fifty-over innings is now 272.6
+runs (was 283.6), and T20 averages 24.0 (was 27.6).
+
+Overthrows remain held back. At a realistic one-in-three-hundred-balls rate they
+add about 0.03 an over, and the run rate is 0.2 inside its ceiling — there is
+room now, but it is not worth spending on the re-calibration's first day.
 
 ### Known calibration gap: the top of the score distribution
 

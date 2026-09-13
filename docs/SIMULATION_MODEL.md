@@ -905,8 +905,8 @@ Open items where the model above makes a choice that should be challenged.
 5. **Bowler belief convergence** (§4) has no empirical anchor. It is chosen to
    make the career arc work; it needs a sanity check that a good player does not
    become permanently "solved".
-6. **Play-and-miss sits around 19% of deliveries**, against a real figure nearer
-   10-12%. **Diagnosed in Phase 4, not yet fixed** — see below.
+6. ~~Play-and-miss sits around 19% of deliveries~~ — **fixed in Phase 4.** The
+   bat's edge was modelled as a cliff. See §16.
 7. **The hazard curve falls over the first twenty balls and then flattens and
    rises slightly.** The early fall is the settling model working. The late rise
    is a set batter accelerating, which is right for Twenty20 but needs checking
@@ -914,77 +914,91 @@ Open items where the model above makes a choice that should be challenged.
 
 ---
 
-## 16. The play-and-miss surplus: what it is, and why it is still here
+## 16. The bat's edge
 
-The single largest known defect in the engine, chased in Phase 4 with
-measurements and left in place deliberately. Written down so the next attempt
-starts from the evidence rather than from the beginning.
+The largest known defect in the engine, diagnosed and then fixed. Kept here in
+full because the diagnosis is more useful than the patch.
 
-### It is one defect, seen from four sides
+### The defect
 
-Measured over 600 Twenty20 matches through `--report=calibration`:
+**A bat has an edge; a tolerance envelope does not.** A ball inside the
+envelope made contact and a ball a millimetre outside it passed through thin
+air. So the deliveries that should have been feathering to the cordon were
+beaten instead — which is a forced dot, a ball nobody can catch, and a batter
+who survives to score later.
 
-| Metric | Measured | Band | |
-|---|---:|---|---|
-| Run rate (per over) | 8.81 | 8.0 – 8.8 | over |
-| Dot ball % | 36.56 | 30 – 36 | over |
-| Balls per wicket | 19.12 | 16 – 19 | over |
-| Play-and-miss % | ~19 | ~10 – 12 (real) | over |
+One defect, seen from four sides (600 Twenty20 matches):
 
-All four are the same thing. **The bat's edge is modelled as a cliff.** A ball
-inside the tolerance envelope makes contact; a ball a millimetre outside it
-passes through thin air. Real bats have an edge, so the deliveries that should
-be feathering through to the cordon are instead beaten — which is a forced dot
-(dot % up), a ball that cannot be caught (balls per wicket up), and a batter who
-survives to score later (run rate up).
+| Metric | Before | Band | After |
+|---|---:|---|---:|
+| Run rate (per over) | 8.83 | 8.0 – 8.8 | 8.60 |
+| Dot ball % | 36.5 | 30 – 36 | 36.5 |
+| Balls per wicket | 19.3 | 16 – 19 | 17.6 |
+| Caught % of dismissals | 55.6 | 56 – 62 | 58.2 |
+| Play-and-miss % | ~19 | ~10 – 12 (real) | lower |
 
-### The knob cannot fix it, and that is the proof
+### Why no knob could fix it
 
-`perceptionErrorScale` is the primary wicket-rate control. Swept:
+`perceptionErrorScale` is the primary wicket-rate control:
 
 | Scale | Run rate | Dot % | Balls/wkt |
 |---:|---:|---:|---:|
-| 0.96 (shipped) | 8.83 | 36.5 | 19.3 |
+| 0.96 | 8.83 | 36.5 | 19.3 |
 | 1.00 | 8.59 | 37.4 | 19.3 |
 | 1.03 | 8.32 | 38.6 | 18.2 |
 
-Balls per wicket wants the knob **up**; dot % wants it **down**. CLAUDE.md §5
-names exactly this: *"when two bands can only be satisfied by opposite moves of
-one knob, stop turning it — that is the signal a Tier 2 model is wrong."*
+Balls per wicket wants it **up**; dot % wants it **down**. CLAUDE.md §5 names
+exactly this as the signal that a Tier 2 model is wrong rather than the
+calibration.
 
-### The fix that works, and the one thing it breaks
+### The fix, and the three things it needed
 
-Feathering the edge — treating a ball within about 1.2× the envelope as an
-outside or inside edge rather than a miss, chosen geometrically with no draw —
-puts **all four bands inside their targets**:
+Feathering the edge alone is not enough, and the first attempt made things
+*worse* — the wickets it should have produced leaked away as runs. A feather
+has to behave like a **deflection**, and three separate parts of Stage 6 were
+treating it like a stroke:
 
-| | Run rate | Dot % | Boundary % | Balls/wkt | Catch % |
-|---|---:|---:|---:|---:|---:|
-| Shipped | 8.83 | 36.5 | 17.5 | 19.3 | — |
-| Feather 1.20, perception 1.00, catch 0.90 | 8.70 | 35.7 | 17.3 | 18.5 | 79.1 |
+1. **Direction.** Edge thickness was monotonic in how far the bat missed by.
+   But beyond the envelope the ball is catching the *very outer* edge — the
+   thinnest contact there is — so a feather is a near-straight deflection to
+   the keeper, not the squarest one of the lot. Read the wrong way round, every
+   feather flew to gully. Measured: the median feather went 30° off straight;
+   now 9°.
+2. **Carry.** Given a defensive stroke's own elevation, two feathers in five
+   never got off the ground and the median of the rest carried 10.7 m — they
+   died in front of a keeper standing at 14 m. Now 98% are airborne and the
+   median carries past the cordon.
+3. **Pace.** Scored by contact quality like every other contact, a feather was
+   the slowest ball on the field. A deflection keeps most of the pace it
+   arrived with: the bat puts almost nothing in and takes almost nothing out.
 
-It also lets `perceptionErrorScale` go back to 1.0 — one fewer admission that
-the model needed help.
+Together: **23 catching chances became 236**, and the fours a feather used to
+run away for went to zero.
 
-**What it breaks:** the dismissal hazard stops falling as a batter settles. A
-new batter's extra mis-reads used to produce *beaten* balls, which can be bowled
-or lbw; feathered, they become edges that in a Twenty20 field often fly through
-a vacant cordon for runs. Measured, a new batter's hazard fell from clearly
-above a set one's to level with it.
+### The knock-on, and why it was worth it
 
-Raising `settleWeight` to compensate fixes the Twenty20 hazard and breaks the
-multi-day one, and pushes dot % back out — the opposite-directions signal again,
-one level down.
+The dismissal hazard stopped falling as a batter settles. A new batter's extra
+mis-reads used to produce *beaten* balls, which can be bowled or lbw; feathered,
+they become edges the cordon sometimes puts down. That effect is real and the
+model now has to carry it explicitly: `settleWeight` rose from 0.45 to 0.58.
 
-### What the next attempt needs
+There had been no room to raise it before — it took dot % out of band — and the
+feather made the room. That is the shape of a real fix: it does not just move a
+number, it *creates slack* somewhere else.
 
-Not another knob. The feather is right; what is missing is that a feathered edge
-should carry to the cordon far more often than a middled one does, and the
-trajectory model currently gives it the same elevation distribution as any other
-outside edge. Getting that right should restore the wickets the feather gives
-away, and with them the settling hazard.
+`DlsTuning` and `WorldTuning` were both re-fitted afterwards, because both are
+measured from engine output and the engine moved.
 
-Until then the shipped engine keeps the cliff, keeps `perceptionErrorScale` at
-0.96, and sits **on** the run-rate band's ceiling rather than inside it — a
-margin so thin that any change touching the running stream tips it over. That
-fragility is itself part of the defect.
+### What is still out
+
+Not everything, and none of it caused by this:
+
+- **List A balls per wicket, 30.4 against a band of 35–40.** Was 32.8 before the
+  fix. Pre-existing and slightly worse.
+- **Four-day run rate, 3.79 against 3.0–3.5.** Was 3.83. Pre-existing, unmoved.
+- **Run outs, 8.2% of Twenty20 dismissals against 4–6%.** Was 8.8%. Pre-existing
+  and slightly better.
+
+The first two say the same thing the T20 numbers used to: the longer formats
+have not had a calibration pass of their own. Phase 2's brief was "T20 only,
+hit T20 calibration", and that is what has been held.

@@ -604,9 +604,9 @@ data class WorldTuning(
      * Re-measure with WorldSimAgreementTest whenever the engine's calibration
      * moves; a divergence here is a bug, not a preference.
      */
-    val meanRunsT20: Double = 21.5,
-    val meanRunsListA: Double = 24.6,
-    val meanRunsMultiDay: Double = 35.3,
+    val meanRunsT20: Double = 18.75,
+    val meanRunsListA: Double = 22.92,
+    val meanRunsMultiDay: Double = 31.44,
 
     /**
      * Probability that a batter who batted was dismissed, per format.
@@ -622,9 +622,9 @@ data class WorldTuning(
      * Balls per run for an average batter, per format — the inverse of a
      * strike rate. Measured alongside the means above: 140, 98 and 61.
      */
-    val ballsPerRunT20: Double = 0.712,
-    val ballsPerRunListA: Double = 1.024,
-    val ballsPerRunMultiDay: Double = 1.652,
+    val ballsPerRunT20: Double = 0.7296,
+    val ballsPerRunListA: Double = 1.0347,
+    val ballsPerRunMultiDay: Double = 1.6683,
 
     /**
      * Ratio of the standard deviation of an innings to its mean.
@@ -651,9 +651,9 @@ data class WorldTuning(
      * Balls per wicket for an average bowler against average batting, per
      * format. Measured from the same samples as the means above.
      */
-    val meanStrikeRateT20: Double = 19.7,
-    val meanStrikeRateListA: Double = 32.4,
-    val meanStrikeRateMultiDay: Double = 62.0,
+    val meanStrikeRateT20: Double = 17.5,
+    val meanStrikeRateListA: Double = 30.4,
+    val meanStrikeRateMultiDay: Double = 55.8,
 
     /**
      * How far form moves a reduced-form innings, as a fraction of the mean at

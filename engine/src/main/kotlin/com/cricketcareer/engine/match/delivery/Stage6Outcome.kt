@@ -472,7 +472,18 @@ object Stage6Outcome {
 
         // An edge decides where the ball goes; the shot barely gets a say. A
         // thin one carries to the keeper, a thick one is gully's problem.
-        val thickness = (abs(contact.lineMismatch) / 2.5).coerceIn(0.0, 1.0)
+        //
+        // Thickness is *not* monotonic in how far the bat missed by. Beyond the
+        // envelope the ball is catching the very outer edge, which is the
+        // thinnest contact there is - so a feather is a near-straight deflection
+        // to the keeper, not the squarest one of the lot. Reading it the other
+        // way sent every feather to gully, which is where the wickets the
+        // feather should have produced were going instead.
+        val thickness = if (contact.feathered) {
+            0.0
+        } else {
+            (abs(contact.lineMismatch) / 2.5).coerceIn(0.0, 1.0)
+        }
         val baseAzimuth = when (contact.point) {
             ContactPoint.OUTSIDE_EDGE -> 178.0 - thickness * 52.0
             ContactPoint.INSIDE_EDGE -> 196.0 + thickness * 34.0
@@ -482,8 +493,16 @@ object Stage6Outcome {
             ContactPoint.SPLICE, ContactPoint.GLOVE -> shot.azimuthDegrees - 20.0 + rng.nextDouble(-40.0, 40.0)
             else -> shot.azimuthDegrees
         }
-        val spread = tuning.azimuthSpreadBest +
-            (tuning.azimuthSpreadWorst - tuning.azimuthSpreadBest) * (1.0 - quality)
+        // Every other contact scatters in proportion to how badly it was struck,
+        // which is right for a stroke and wrong for a deflection: a feather
+        // barely changed the ball's direction, so it cannot have changed it by
+        // very much.
+        val spread = if (contact.feathered) {
+            tuning.featherAzimuthSpread
+        } else {
+            tuning.azimuthSpreadBest +
+                (tuning.azimuthSpreadWorst - tuning.azimuthSpreadBest) * (1.0 - quality)
+        }
         val azimuth = (baseAzimuth + rng.nextGaussian() * spread).mod(360.0)
 
         // Elevation. An edge or a top edge goes up whether he meant it or not.
@@ -499,7 +518,15 @@ object Stage6Outcome {
             else -> shot.elevationDegrees +
                 rng.nextGaussian() * 3.5 * (1.5 - quality).pow(1.5)
         }
-        val elevation = baseElevation.coerceIn(-4.0, 78.0)
+        // A feather leaves the bat at about the height it arrived, which is
+        // chest height at the cordon and glove height at the keeper. Not the
+        // near-flat deflection a defensive stroke's elevation would give it.
+        val elevation = if (contact.feathered) {
+            (tuning.featherElevationDegrees + rng.nextGaussian() * tuning.featherElevationSpread)
+                .coerceIn(1.0, 26.0)
+        } else {
+            baseElevation.coerceIn(-4.0, 78.0)
+        }
 
         val power = context.strikerSkill(Attribute.POWER)
         val timing = context.strikerSkill(Attribute.TIMING)
@@ -514,8 +541,17 @@ object Stage6Outcome {
             (1.0 - tuning.deadBatAbsorption) * shot.powerFactor.coerceAtMost(1.0)
         val speedFromBall = tuning.incomingPaceTransfer * firmness * ball.paceKph / 3.6
         val qualityFactor = tuning.mistimedSpeedFloor + (1.0 - tuning.mistimedSpeedFloor) * quality
-        val exitSpeed = ((speedFromBat + speedFromBall) * qualityFactor * context.tuning.knobs.batPowerScale)
-            .coerceAtLeast(1.0)
+        val exitSpeed = if (contact.feathered) {
+            // A feather is a deflection, not a stroke. The bat puts almost
+            // nothing into it, but the ball keeps most of the pace it arrived
+            // with - which is exactly why it carries to the cordon. Scoring it
+            // by contact quality made it the slowest ball on the field and it
+            // died at the batter's feet.
+            (ball.paceKph / 3.6 * tuning.featherPaceRetained).coerceAtLeast(1.0)
+        } else {
+            ((speedFromBat + speedFromBall) * qualityFactor * context.tuning.knobs.batPowerScale)
+                .coerceAtLeast(1.0)
+        }
 
         // Below this it is a ball along the ground with a bit of air under it,
         // not a catching chance.

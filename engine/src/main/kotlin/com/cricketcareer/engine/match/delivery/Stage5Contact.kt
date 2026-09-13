@@ -36,6 +36,16 @@ data class Contact(
     val lineMismatch: Double,
     val heightMismatch: Double,
     val timingErrorSeconds: Double,
+    /**
+     * The ball caught the very outer edge, having passed *outside* the bat's
+     * tolerance envelope.
+     *
+     * The thinnest contact there is, and it behaves like nothing else: the ball
+     * is barely deflected, keeps most of its pace, and carries to the keeper.
+     * Every other edge is the bat arriving in the wrong place; this one is the
+     * bat hardly arriving at all.
+     */
+    val feathered: Boolean = false,
 )
 
 /**
@@ -117,7 +127,11 @@ object Stage5Contact {
         val distance = sqrt(dLength * dLength + dLine * dLine + dHeight * dHeight)
         val quality = exp(-0.5 * distance * distance)
 
-        val point = classify(context, ball, shot, dLength, dLine, dHeight, distance, tuning.missThreshold)
+        val point = classify(
+            context, ball, shot, dLength, dLine, dHeight, distance,
+            tuning.missThreshold, tuning.edgeFeatherFactor,
+        )
+        val feathered = distance > tuning.missThreshold && point.isEdge
 
         return Contact(
             quality = if (point == ContactPoint.MISSED || point == ContactPoint.PAD || point == ContactPoint.BODY) 0.0 else quality,
@@ -126,6 +140,7 @@ object Stage5Contact {
             lineMismatch = dLine,
             heightMismatch = dHeight,
             timingErrorSeconds = timingError,
+            feathered = feathered,
         )
     }
 
@@ -145,6 +160,7 @@ object Stage5Contact {
         dHeight: Double,
         distance: Double,
         missThreshold: Double,
+        featherFactor: Double,
     ): ContactPoint {
         if (distance > missThreshold) {
             // Beaten. Only a clear blow on the upper body is decided here -
@@ -155,7 +171,19 @@ object Stage5Contact {
             // from the game.
             val bodyHigh = ball.heightAtStumpsMetres > 1.10 &&
                 ball.lineAtStumpsMetres > -0.42 && ball.lineAtStumpsMetres < 0.20
-            return if (bodyHigh) ContactPoint.BODY else ContactPoint.MISSED
+            if (bodyHigh) return ContactPoint.BODY
+
+            // A bat has an edge; the tolerance envelope does not. A ball a
+            // fraction outside it still catches wood, and which way it goes is
+            // decided the same way as inside: by which side of the bat it beat.
+            // Modelled as a cliff, all of these passed through thin air - and
+            // the surplus showed up as play-and-miss at 19% of deliveries
+            // against a real 10-12%, dots over their band, and the missing
+            // edges as missing catches (docs/SIMULATION_MODEL.md §16).
+            if (distance <= missThreshold * featherFactor && abs(dLine) >= maxOf(abs(dLength), abs(dHeight))) {
+                return if (dLine > 0) ContactPoint.OUTSIDE_EDGE else ContactPoint.INSIDE_EDGE
+            }
+            return ContactPoint.MISSED
         }
 
         // Inside the envelope: the largest normalised miss says where on the bat.
