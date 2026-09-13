@@ -89,7 +89,7 @@ data class FormatIntentTuning(
         latePhaseRisk = 0.02,
         leavePatience = 1.00,
         leaveBallCost = 1.1,
-        singleAppetiteBonus = -1.10,
+        singleAppetiteBonus = -0.62,
     ),
 ) {
     fun forFormat(format: MatchFormat): FormatIntent =

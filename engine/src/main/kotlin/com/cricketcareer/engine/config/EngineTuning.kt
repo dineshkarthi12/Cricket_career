@@ -556,6 +556,44 @@ data class OutcomeTuning(
     /** How often a ground fielder fumbles, at groundFielding 50. */
     val misfieldBase: Double = 0.055,
 
+    /**
+     * How many balls a batter counts as new for, as far as the captain is
+     * concerned.
+     *
+     * A wicket falls and the field comes up: a catcher appears, the ring
+     * tightens, and the new man is attacked until he looks like he belongs. It
+     * is the most reliable thing a captain does in any format and the engine did
+     * not do it at all — which is why a fifty-over batter's hazard did not fall
+     * as he settled, alone among the three formats. He was more error-prone
+     * early *and* playing more carefully early, the two cancelled, and with
+     * nobody in a catching position his extra edges went nowhere.
+     *
+     * Twelve balls is about two overs, which is how long a captain gives it
+     * before the sweeper goes back out. Raising it makes early wickets more
+     * likely and lowers every batting average in the game.
+     */
+    val newBatterBalls: Int = 12,
+
+    /**
+     * The shine below which a red-ball captain takes his slip out for a set
+     * batter.
+     *
+     * The cordon is there because the ball is doing something. When it stops —
+     * old ball, flat pitch, batter forty balls in — the slip goes to the sweeper
+     * and the captain settles for containment until the next one is due. A
+     * captain who kept a slip in for all eighty overs would be a captain nobody
+     * has ever seen, and in this engine he cost a four-day batter six balls of
+     * his innings.
+     *
+     * Raising it makes the slips leave sooner, which lifts four-day batting
+     * averages and lowers the caught share of dismissals.
+     */
+    val slipsComeOutBelowShine: Double = 0.55,
+
+
+    val aerialCarryRange: Double = 44.0,
+
+
     /** Running: batter speed range in m/s, and the cost of turning for a second run. */
     val runSpeedSlowest: Double = 6.6,
     val runSpeedFastest: Double = 8.6,
@@ -670,6 +708,7 @@ data class OutcomeTuning(
      * formats.
      */
     val comfortFormatWeight: Double = 0.30,
+
 
     /** Chance a batter takes a tight single anyway, at running judgement 50. */
     val tightSingleAppetite: Double = 0.49,

@@ -132,6 +132,9 @@ class InningsSimulator(
     // shared by all six balls of the over. See FieldRewards.
     private var currentFieldRewards: FieldRewards? = null
 
+    // Whether [currentField] was set for a batter who had just arrived.
+    private var fieldSetForNewBatter: Boolean = false
+
     /**
      * Bowl the innings out.
      *
@@ -185,15 +188,7 @@ class InningsSimulator(
             val bowler = chooseBowler(state, previousBowler)
             state.setBowler(bowler.id)
             startOrContinueSpell(bowler.id, state.completedOvers)
-            currentField = FieldCaptain.setField(
-                bowlingSide = bowlingSide,
-                bowler = bowler.id,
-                keeper = if (keeper == bowler.id) bowlingSide.first { it.id != bowler.id }.id else keeper,
-                phase = phaseFor(state),
-                bowlerIsSpin = bowler.bowlingStyle.isSpin,
-                fieldersOutsideLimit = format.fieldersOutsideCircleLimit(state.completedOvers),
-            )
-            currentFieldRewards = FieldRewards.of(currentField!!)
+            setTheField(state, bowler)
 
             val overStartedAt = state.legalBalls
             while (!state.isComplete && state.legalBalls - overStartedAt < MatchFormat.BALLS_PER_OVER) {
@@ -255,7 +250,46 @@ class InningsSimulator(
         sessionIndex++
     }
 
+    /**
+     * The captain sets his field.
+     *
+     * Called at the top of every over and again the moment a wicket brings a
+     * new man in, because that is when a field actually changes: the catchers
+     * come up, a sweeper comes in, and the new batter is attacked for a couple
+     * of overs. Setting it only at the top of the over meant a batter could
+     * arrive on the second ball and face four deliveries to a field set for the
+     * man he replaced.
+     */
+    private fun setTheField(state: InningsState, bowler: Player) {
+        val newBatter = strikerIsNew(state)
+        currentField = FieldCaptain.setField(
+            bowlingSide = bowlingSide,
+            bowler = bowler.id,
+            keeper = if (keeper == bowler.id) bowlingSide.first { it.id != bowler.id }.id else keeper,
+            phase = phaseFor(state),
+            bowlerIsSpin = bowler.bowlingStyle.isSpin,
+            fieldersOutsideLimit = format.fieldersOutsideCircleLimit(state.completedOvers),
+            multiDay = format.isMultiDay,
+            newBatter = newBatter,
+            ballIsDoingSomething = BallCondition
+                .at(oversSinceNewBall, tuning.movement, weather.outfieldAbrasion)
+                .shine >= tuning.outcome.slipsComeOutBelowShine,
+        )
+        currentFieldRewards = FieldRewards.of(currentField!!)
+        fieldSetForNewBatter = newBatter
+    }
+
+    /** Whether the man on strike has only just arrived, as a captain judges it. */
+    private fun strikerIsNew(state: InningsState): Boolean =
+        ballsFaced.getOrDefault(state.striker, 0) < tuning.outcome.newBatterBalls
+
     private fun bowlOne(state: InningsState, bowler: Player) {
+        // A wicket last ball brought somebody new in, or the man who arrived has
+        // now played himself in: either way the field is no longer the one the
+        // captain wants, and he changes it before the next ball rather than at
+        // the end of the over.
+        if (strikerIsNew(state) != fieldSetForNewBatter) setTheField(state, bowler)
+
         val striker = byId.getValue(state.striker)
         val nonStriker = byId.getValue(state.nonStriker)
 

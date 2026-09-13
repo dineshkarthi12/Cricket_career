@@ -598,15 +598,15 @@ data class WorldTuning(
      *
      * MEASURED, not chosen. Taken from 1400 T20, 1400 List A and 500 four-day
      * innings of Fixtures.averageXI on Pitch.AVERAGE, which returned batting
-     * averages of 24.67, 28.95 and 31.86. These means are those averages times
+     * averages of 24.42, 29.01 and 29.42. These means are those averages times
      * the corresponding dismissal rate below, so that
      * `WorldSim.average` reproduces the engine's own number.
      * Re-measure with WorldSimAgreementTest whenever the engine's calibration
      * moves; a divergence here is a bug, not a preference.
      */
-    val meanRunsT20: Double = 19.24,
-    val meanRunsListA: Double = 22.58,
-    val meanRunsMultiDay: Double = 29.95,
+    val meanRunsT20: Double = 19.05,
+    val meanRunsListA: Double = 22.63,
+    val meanRunsMultiDay: Double = 27.66,
 
     /**
      * Probability that a batter who batted was dismissed, per format.
@@ -620,11 +620,11 @@ data class WorldTuning(
 
     /**
      * Balls per run for an average batter, per format — the inverse of a
-     * strike rate. Measured alongside the means above: 138, 94 and 54.
+     * strike rate. Measured alongside the means above: 137, 94 and 53.
      */
-    val ballsPerRunT20: Double = 0.7272,
-    val ballsPerRunListA: Double = 1.0607,
-    val ballsPerRunMultiDay: Double = 1.8396,
+    val ballsPerRunT20: Double = 0.7300,
+    val ballsPerRunListA: Double = 1.0616,
+    val ballsPerRunMultiDay: Double = 1.9037,
 
     /**
      * Ratio of the standard deviation of an innings to its mean.
@@ -651,9 +651,9 @@ data class WorldTuning(
      * Balls per wicket for an average bowler against average batting, per
      * format. Measured from the same samples as the means above.
      */
-    val meanStrikeRateT20: Double = 17.9,
-    val meanStrikeRateListA: Double = 30.7,
-    val meanStrikeRateMultiDay: Double = 58.6,
+    val meanStrikeRateT20: Double = 17.8,
+    val meanStrikeRateListA: Double = 30.8,
+    val meanStrikeRateMultiDay: Double = 56.0,
 
     /**
      * How far form moves a reduced-form innings, as a fraction of the mean at

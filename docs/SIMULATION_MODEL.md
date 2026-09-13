@@ -1139,3 +1139,113 @@ accident, never a plan.
 Measured: T20 wides 3.2% → 4.3%, List A 2.4% → 3.1%, both inside the 3–5% band.
 Four-day cricket is untouched — its wide guideline is judged on whether the
 batter could have played at it, and a red-ball bowler does not aim there.
+
+---
+
+## 19. Nobody ever moved the field
+
+Two things a captain does on every ball of every match, and the engine did
+neither.
+
+### There was no red-ball field
+
+`FieldCaptain` chose between five presets, keyed on the powerplay restriction
+and the phase of the innings. A four-day match has no powerplay restriction and
+no phase, so it fell through to the last one — **a fifty-over middle-overs
+field**. Four-day cricket was being played with no slips at all, a third man,
+a deep point and a cow corner.
+
+There is now a red-ball branch, and it moves the way a Test field moves:
+
+| | catchers | out |
+|---|---|---|
+| New batter, ball doing something | 2 slips + gully | 2 |
+| Set batter, ball doing something | 1 slip | 4 |
+| Set batter, old ball | none | 4 |
+
+The last row is the half that is easy to forget. A captain who kept a slip in
+for all eighty overs is a captain nobody has ever seen: the cordon is there
+because the ball is doing something, and when it stops the slip goes out to save
+runs. `slipsComeOutBelowShine` is where that happens, and without it a four-day
+batter lasted 52 balls against a band of 55 to 65.
+
+### Nobody attacked a new batter
+
+A wicket falls and the field comes up. It is the most reliable thing a captain
+does in any format, and it did not happen — the field was set at the top of the
+over and nothing after that changed it, so a batter could arrive on the second
+ball and face four deliveries to a field set for the man he replaced.
+
+The field is now re-set the moment the man on strike changes status, and every
+format that can afford a catcher posts one for `newBatterBalls` (12, about two
+overs). A white-ball captain pays for it out of the deep, which keeps the field
+legal by construction. Nobody posts a slip at the death: the new man there is a
+tail-ender swinging, and the boundary is the thing worth saving.
+
+### What it fixed
+
+The List A survival hazard. `docs/CALIBRATION.md` recorded it as the one real
+gap left after the Phase 4 pass:
+
+```
+dismissals per 100 balls faced, by balls already faced
+             0-4    5-9   10-14  15-19  20-24  25-29  30-34   35+
+before       3.04   3.10   3.21   3.40   3.10   3.38   3.21   3.25   (+7%)
+after        3.38   3.27   3.23   3.14   3.03   3.09   2.89   3.11   (-8%)
+```
+
+**It was rising.** A fifty-over batter was no safer at forty balls than at four,
+alone among the three formats, and the diagnosis in the log was that his early
+error-proneness and his early caution cancelled. That was half of it. The other
+half is that with nobody in a catching position, the extra edges an unsettled
+batter gives had nowhere to go. Four-day cricket's hazard steepened at the same
+time, from -15% to -38%, which is the cordon doing its job.
+
+### What it exposed, and did not fix
+
+**Every powerplay preset is illegal.** Mid-off and mid-on are modelled 29 metres
+from the bat, which is outside a 27.43-metre circle, so a field restriction
+allowing two men out was being played with four. `positionsFor`'s own comment
+claims the presets satisfy the restriction by construction; `isLegal` had never
+been asked. `FieldCaptainTest` now asks, and the test is disabled with this
+paragraph as its reason.
+
+The fix is one line — mid-off and mid-on stand *inside* the circle, which is
+where they actually stand; the deep versions of both positions already exist and
+are called long-off and long-on — and it cannot be taken on its own, because
+`FieldGaps.reward` uses the same circle to decide who guards a lofted shot. At
+29 metres mid-off was blocking the loft over his own head and **not** blocking
+the drive he is standing there to stop. Both backwards, and the whole Twenty20
+calibration was resting on it.
+
+Measured, with the geometry corrected (the patch is not in the tree; these are
+the numbers it produced):
+
+```
+                       before    corrected   band
+T20 run rate             8.67       10.98    8.0-8.8
+T20 boundary %          17.23       24.29    17-20
+List A boundary %        9.38       14.91    13-15
+List A balls/wicket     30.72       35.05    35-40
+```
+
+The two bands the project has never met — **List A's boundary rate and its
+balls per wicket — both come into band**, which is strong evidence that the
+geometry is the thing that was wrong and not the tuning that was built on top of
+it. What does not come with them is Twenty20: with the straight loft genuinely
+unguarded, batters take it, and the six rate goes to 7.8% of deliveries against
+a real figure nearer 4%. Fours to sixes comes out at 1.5:1 where cricket runs
+about 3.5:1.
+
+Four knobs were swept against that and none of them separates the two:
+`rewardWeight` (1.8 to 2.6) trades Twenty20's wicket rate against List A's,
+`batPowerScale` cuts fours and sixes together, `aerialGuardBandMetres` does
+nothing until it is wide enough to mean "any fielder anywhere", and
+`aerialClosingSpeed` fixes Twenty20 and takes four-day and List A out. That is
+the CLAUDE.md §5 signal four times over: **the six-to-four split is a model
+question, not a number.** It wants the aerial share of struck balls brought down
+to something like a real 25-30%, and that is the next piece of work here.
+
+So the geometry stays as it is, wrong and calibrated, rather than half-fixed and
+half-calibrated — with the measurement above recorded so the next pass starts
+from it instead of rediscovering it.

@@ -40,7 +40,7 @@ data class DlsTuning(
      * hand as to have one.
      */
     val asymptote: List<Double> = listOf(
-        389.3, 374.4, 359.3, 318.7, 246.4, 204.1, 157.1, 115.9, 73.1, 33.0,
+        379.2, 357.3, 334.6, 295.3, 244.8, 199.9, 159.3, 109.3, 71.8, 36.5,
     ),
 
     /**
@@ -51,7 +51,7 @@ data class DlsTuning(
      * accelerating at the end of a fifty-over innings.
      */
     val decay: List<Double> = listOf(
-        0.02448, 0.02453, 0.02519, 0.02835, 0.03660, 0.04329, 0.05604, 0.07177, 0.10302, 0.18732,
+        0.02543, 0.02626, 0.02710, 0.03035, 0.03654, 0.04410, 0.05414, 0.07758, 0.10533, 0.15827,
     ),
 
     /**
@@ -63,7 +63,7 @@ data class DlsTuning(
      * one faced. The rule adds runs at the average scoring rate for the extra
      * resource instead. Measured from this engine, not assumed.
      */
-    val averageFiftyOverTotal: Double = 271.7,
+    val averageFiftyOverTotal: Double = 269.5,
 
     /**
      * Overs in the innings the resource table is normalised against.

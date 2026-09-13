@@ -652,3 +652,73 @@ at 5.0 / 6.3 / 0.9 per cent by format. That is the shape of the real game — a
 Test side barely ever runs one out — and it is *only* reachable because the
 running model now has the batter judging rather than knowing. The previous model
 could produce one number for all three, which is precisely what was wrong with it.
+
+
+---
+
+## 2026-09-13 — the field starts moving
+
+`SIMULATION_MODEL.md` §19. Four-day cricket had no red-ball field at all — it
+fell through to a fifty-over middle-overs preset, with no slips anywhere — and
+no captain in any format ever changed his field when a wicket fell.
+
+```
+                              T20            List A         Multi-day
+Run rate (per over)      8.67  ok        5.96  ok         3.36  ok
+Dot ball %              35.67  ok       43.73  ok        73.27  ok
+Boundary % of balls     17.23  ok        9.38  (13-15)    7.20  (9-11)
+Balls per wicket        18.04  ok       30.72  (35-40)   55.95  ok
+Wide %                   4.26  ok        3.06  ok         1.48  (1.5-2.5)
+Caught % of dismissals  59.05  ok       61.63  ok        66.77  (56-62)
+```
+
+Samples: 900 / 900 / 350 innings, seed 1. Twenty20 keeps all thirteen bands.
+
+**The List A hazard is fixed.** It was the one real gap the previous pass left,
+and it was not merely flat — it was *rising*:
+
+```
+             0-4    5-9   10-14  15-19  20-24  25-29  30-34   35+
+before       3.04   3.10   3.21   3.40   3.10   3.38   3.21   3.25   (+7%)
+after        3.38   3.27   3.23   3.14   3.03   3.09   2.89   3.11   (-8%)
+```
+
+The previous entry's diagnosis — that an unsettled fifty-over batter's caution
+cancels his error-proneness — was half the story. The other half is that with
+nobody in a catching position, the extra edges he gives had nowhere to go.
+Four-day cricket steepened from -15% to -38% over the same change.
+
+Four-day needed its intent re-tuned around a field that can actually take a
+catch: `multiDay.singleAppetiteBonus` -1.10 → -0.62, and `slipsComeOutBelowShine`
+decides when the cordon goes. With a slip in for all eighty overs a four-day
+batter lasted 52 balls against a band of 55 to 65.
+
+`DlsTuning` and `WorldTuning` re-fitted afterwards, as always.
+
+### Found, measured, and deliberately not fixed
+
+**Every powerplay preset is illegal.** Mid-off and mid-on sit 29 metres out,
+which is outside a 27.43-metre circle, so a restriction allowing two men out was
+played with four. `FieldCaptainTest` now checks it and the test is **disabled
+with the reason**, per the convention this log already uses.
+
+It cannot be fixed alone: `FieldGaps.reward` uses the same circle to decide who
+guards a lofted shot, so at 29 metres mid-off blocks the loft over his own head
+and not the drive he is there to stop. Corrected, the two bands this project has
+**never** met both come in — List A boundary 9.38 → 14.91 (band 13-15) and List A
+balls per wicket 30.72 → 35.05 (band 35-40) — and Twenty20 goes to 10.98 an over
+because the straight loft is genuinely unguarded and the engine's six rate is
+7.8% of deliveries against a real 4%.
+
+Four knobs swept against that split, none of which separates it:
+
+| knob | swept | why it fails |
+|---|---|---|
+| `rewardWeight` | 1.8 – 2.6 | trades T20's wicket rate against List A's |
+| `batPowerScale` | 0.98 – 1.20 | cuts fours and sixes together |
+| `aerialGuardBandMetres` | 16 – 60 | does nothing until it means "any fielder anywhere" |
+| `aerialClosingSpeed` | 5.4 – 7.4 | fixes T20, takes four-day and List A out |
+
+Per §4 step 5 that is the signal to stop turning them. The six-to-four split is
+a model question — the aerial share of struck balls is 37% against a real 25-30%
+— and it is the next piece of work in the engine.

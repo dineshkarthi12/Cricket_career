@@ -29,6 +29,14 @@ object FieldCaptain {
      * @param bowler excluded from placement — he is running in.
      * @param keeper whoever is wearing the gloves.
      * @param fieldersOutsideLimit powerplay restriction, or null when there is none.
+     * @param multiDay a red-ball field, which is a different game: a cordon
+     *   rather than sweepers, because in a match with no clock on the innings
+     *   the only thing worth buying is a wicket.
+     * @param newBatter whether the man on strike has just arrived. A wicket
+     *   falls and the field comes up — this is what makes that happen.
+     * @param ballIsDoingSomething whether the ball still has enough on it to be
+     *   worth a catcher. When it does not, a red-ball captain's slip goes out to
+     *   save runs, which is the other half of what makes a Test field move.
      */
     fun setField(
         bowlingSide: List<Player>,
@@ -37,8 +45,13 @@ object FieldCaptain {
         phase: MatchPhase,
         bowlerIsSpin: Boolean,
         fieldersOutsideLimit: Int?,
+        multiDay: Boolean = false,
+        newBatter: Boolean = false,
+        ballIsDoingSomething: Boolean = true,
     ): FieldSetting {
-        val positions = positionsFor(phase, bowlerIsSpin, fieldersOutsideLimit)
+        val positions = positionsFor(
+            phase, bowlerIsSpin, fieldersOutsideLimit, multiDay, newBatter, ballIsDoingSomething,
+        )
         val available = bowlingSide.filter { it.id != bowler && it.id != keeper }
 
         // Close catchers want reflexes, the deep wants safe hands and legs.
@@ -79,9 +92,58 @@ object FieldCaptain {
         phase: MatchPhase,
         spin: Boolean,
         limit: Int?,
+        multiDay: Boolean,
+        newBatter: Boolean,
+        ballIsDoingSomething: Boolean,
     ): List<FieldPosition> {
         val effectiveLimit = limit ?: 5
         return when {
+            // --- Red ball. A different game, and it was being played with a
+            // fifty-over middle-overs field: no slips anywhere, a third man and
+            // a cow corner. In a match with no clock on the innings there is
+            // nothing to buy but a wicket, so the catchers come in and the
+            // sweepers go.
+            multiDay && newBatter && !spin -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.SECOND_SLIP,
+                FieldPosition.GULLY, FieldPosition.POINT, FieldPosition.COVER,
+                FieldPosition.MID_OFF, FieldPosition.MIDWICKET, FieldPosition.THIRD_MAN,
+                FieldPosition.DEEP_SQUARE_LEG,
+            )
+            multiDay && newBatter -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.SILLY_POINT,
+                FieldPosition.SHORT_LEG, FieldPosition.POINT, FieldPosition.COVER,
+                FieldPosition.MID_OFF, FieldPosition.MID_ON, FieldPosition.MIDWICKET,
+                FieldPosition.SQUARE_LEG,
+            )
+            // A set batter in a Test. One slip kept and three men out: as a
+            // batter gets in, a captain gives up on the edge and starts saving
+            // runs, which is the whole difference between the first over of a
+            // spell and the fortieth of a session. Keeping two slips here made
+            // four-day batting so hard that a batter lasted 52 balls against a
+            // band of 55 to 65 and the dot rate went three points over its own.
+            // Set batter, old ball, nothing happening: the slip goes out and
+            // the captain settles for containment until the next new ball is
+            // due. Keeping one in for all eighty overs is a captain nobody has
+            // ever seen, and it cost a four-day batter six balls of his innings.
+            multiDay && !ballIsDoingSomething -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.POINT, FieldPosition.COVER,
+                FieldPosition.MID_OFF, FieldPosition.MID_ON, FieldPosition.MIDWICKET,
+                FieldPosition.THIRD_MAN, FieldPosition.DEEP_POINT, FieldPosition.LONG_OFF,
+                FieldPosition.DEEP_SQUARE_LEG,
+            )
+            multiDay && !spin -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.POINT,
+                FieldPosition.COVER, FieldPosition.MID_OFF, FieldPosition.MIDWICKET,
+                FieldPosition.THIRD_MAN, FieldPosition.DEEP_POINT, FieldPosition.LONG_OFF,
+                FieldPosition.DEEP_SQUARE_LEG,
+            )
+            multiDay -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.SILLY_POINT,
+                FieldPosition.POINT, FieldPosition.COVER, FieldPosition.MID_OFF,
+                FieldPosition.MID_ON, FieldPosition.MIDWICKET, FieldPosition.DEEP_SQUARE_LEG,
+                FieldPosition.LONG_ON,
+            )
+
             effectiveLimit <= 2 && !spin -> listOf(
                 FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.POINT,
                 FieldPosition.COVER, FieldPosition.MID_OFF, FieldPosition.MID_ON,
@@ -94,6 +156,16 @@ object FieldCaptain {
                 FieldPosition.MIDWICKET, FieldPosition.SQUARE_LEG,
                 FieldPosition.DEEP_COVER, FieldPosition.DEEP_MIDWICKET,
             )
+            // A white-ball captain attacks a new batter too, and pays for the
+            // catcher out of the deep: one sweeper comes in, which keeps the
+            // field legal by construction and is exactly the trade a captain
+            // makes for the two overs after a wicket.
+            effectiveLimit <= 4 && newBatter -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.POINT,
+                FieldPosition.COVER, FieldPosition.MID_OFF, FieldPosition.MID_ON,
+                FieldPosition.MIDWICKET, FieldPosition.THIRD_MAN,
+                FieldPosition.COW_CORNER, FieldPosition.DEEP_SQUARE_LEG,
+            )
             effectiveLimit <= 4 -> listOf(
                 FieldPosition.WICKETKEEPER, FieldPosition.POINT, FieldPosition.COVER,
                 FieldPosition.MID_OFF, FieldPosition.MID_ON, FieldPosition.MIDWICKET,
@@ -104,6 +176,15 @@ object FieldCaptain {
                 FieldPosition.WICKETKEEPER, FieldPosition.POINT, FieldPosition.COVER,
                 FieldPosition.MID_OFF, FieldPosition.MIDWICKET,
                 FieldPosition.THIRD_MAN, FieldPosition.LONG_OFF, FieldPosition.LONG_ON,
+                FieldPosition.COW_CORNER, FieldPosition.DEEP_SQUARE_LEG,
+            )
+            // Nobody posts a slip at the death: the new man there is a
+            // tail-ender swinging, and the boundary is the thing worth saving.
+            // So the new-batter field belongs to the middle overs only.
+            newBatter -> listOf(
+                FieldPosition.WICKETKEEPER, FieldPosition.FIRST_SLIP, FieldPosition.POINT,
+                FieldPosition.COVER, FieldPosition.MID_OFF, FieldPosition.MIDWICKET,
+                FieldPosition.THIRD_MAN, FieldPosition.LONG_OFF,
                 FieldPosition.COW_CORNER, FieldPosition.DEEP_SQUARE_LEG,
             )
             else -> listOf(
