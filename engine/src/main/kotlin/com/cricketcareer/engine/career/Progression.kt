@@ -8,8 +8,10 @@ import com.cricketcareer.engine.model.world.MatchFormat
 import com.cricketcareer.engine.model.world.Pitch
 import com.cricketcareer.engine.rng.SimRandom
 import com.cricketcareer.engine.seed.SeedDatabase
+import kotlinx.serialization.Serializable
 
 /** Where a player is on the ladder, and how long he has been there. */
+@Serializable
 data class CareerPosition(
     val teamId: String,
     val level: LadderLevel,

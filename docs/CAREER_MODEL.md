@@ -415,7 +415,100 @@ averaging fifty-three that he was no longer up to this level.
 
 ---
 
-## 13. Determinism
+## 13. Difficulty
+
+Three settings, and what each of them is allowed to change.
+
+| | Selectors | Opposition | Injuries | Form swings | Development |
+|---|---|---|---|---|---|
+| Amateur | 0.70x patience | -0.08 standard | 0.70x | 0.80x | 1.25x |
+| Professional | 1.00x | 0.00 | 1.00x | 1.00x | 1.00x |
+| Elite | 1.35x patience | +0.08 standard | 1.35x | 1.25x | 0.82x |
+
+"Selector patience" is the weight the panel puts on **reputation** — the term
+that makes an incumbent hard to shift and a debut feel earned. It is the biggest
+lever of the five, because a career is decided far more often by whether a
+player is picked than by anything he does when he is.
+
+"Form swings" reads backwards at first: a *larger* multiplier is harsher, not
+kinder. Form moves further per performance, so a bad trot arrives faster and
+bites deeper — and the selectors are reading that figure.
+
+Three rules hold this together:
+
+1. **Difficulty changes the career, never the cricket.** On Elite the ball does
+   not swing further, the fielders do not catch better and the user's attributes
+   are untouched. `Difficulty.applyTo` takes and returns a `CareerTuning`, so it
+   cannot reach `EngineTuning` at all — and a test pins the career-layer
+   constants it must not touch either: the reduced-form world model, ageing,
+   retirement and contracts. Shading any of those would be the same lie wearing
+   a career-layer hat.
+2. **Professional is the identity.** Every band in `docs/CALIBRATION.md` is
+   measured there. A test asserts `PROFESSIONAL.applyTo(DEFAULT) == DEFAULT`,
+   because the day that stops being true, every calibration figure in the
+   project is describing a game nobody plays.
+3. **No parallel code path.** There is no `if (difficulty == ELITE)` in the
+   career layer. Same reason as Q3's rule about the user's batting posture: a
+   branch is a second, worse model of the thing it duplicates, and the two
+   drift.
+
+The player is told all of this on the difficulty picker, in as many words. A
+player who suspects the game is shading his attributes has no reason to trust
+any number it shows him afterwards, and the numbers are the product.
+
+---
+
+## 14. Saving a career
+
+See `docs/ARCHITECTURE.md` §4 for why a save stores both the result and the
+seed. What Phase 7 built:
+
+- **`CareerSave`** — the career on disk: the career seed, the difficulty, the
+  player, his ladder position, the date reached, and every match he has played
+  as a `PlayedMatch`. `:engine` does no I/O, so `SaveCodec` turns it into a
+  string and `:data` decides where the bytes go.
+- **Two version numbers, moving independently.** `saveFormat` is the shape of
+  the file; `EngineVersion.CURRENT` is the cricket. A calibration change bumps
+  the engine stamp and leaves every save readable; adding a field bumps the save
+  format and invalidates no scorecard. A match offers "watch it again" only when
+  its stored engine stamp still matches, because a replay that disagrees with
+  the scorecard beside it is worse than no replay at all.
+- **Unknown keys are ignored; a newer save format is refused.** Ignoring a key
+  you have never heard of is safe and keeps an older build from bricking a
+  player's career. Ignoring that a key you *do* know now means something else is
+  not, and the format number is the only thing that can tell those apart.
+- **Nothing derived is stored.** Averages, the record book, the form figure —
+  all recomputed from the matches, so no screen can disagree with the
+  scorecards behind it.
+- **`SaveIndex`** holds several careers. It is a cache of each save's summary
+  and is treated as one: `reconcile` rebuilds it from the saves, which are
+  always the authority. Deleting the career being played leaves *none* selected
+  rather than promoting another — which career he wants next is his choice, and
+  guessing it is how a game opens the wrong save.
+
+## 15. Records
+
+`Records.of(appearances)` is a pure function from what happened to the record
+book, and it follows the scorer's conventions rather than the arithmetically
+convenient ones:
+
+- average is runs per **dismissal**, and a player never out has **no** average
+  rather than an infinite one;
+- a not-out highest score carries the asterisk, and 72\* beats 72;
+- an innings a batter did not bat in is not an innings — a number eleven in the
+  XI twelve times who padded up four is 4 innings, 12 matches;
+- nought not out is not a duck;
+- best bowling is most wickets, then fewest runs: 5/40 beats 5/62 beats 4/12.
+
+The milestone list is the part a player actually reads: the day something
+happened for the first time, in order, each stamped on the match that did it.
+A milestone happens **once** — passing a thousand runs is an event, being past a
+thousand for the next decade is not — and a career best is only announced once
+there is something to beat, because "career-best 3" on debut is noise.
+
+---
+
+## 16. Determinism
 
 Career streams are derived from the **career seed** the same way match streams
 are derived from a match seed:

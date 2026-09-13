@@ -106,6 +106,24 @@ It does **not** secretly modify the user's attributes or the ball-by-ball maths.
 A simulation that lies to the player about what happened is not worth building,
 and it would make the statistics meaningless.
 
+**Built as the default, Phase 7.** `Difficulty` is an enum of three settings —
+Amateur, Professional, Elite — expressed entirely as a pure transform on
+`CareerTuning`. Its signature is `applyTo(CareerTuning): CareerTuning`, so it
+cannot reach `EngineTuning` at all; a test additionally pins the career-layer
+constants it must not touch either (the reduced-form world, ageing, retirement,
+contracts), because shading those would be the same lie wearing a career-layer
+hat. Development rate joins the four levers above: a slower one decides whether
+a player gets a second chance at a level he failed at first time.
+
+Professional is the identity transform, and a test asserts it — every band in
+`docs/CALIBRATION.md` is measured there, so the day that stops being true every
+one of them is measuring a different game from the one it claims to.
+
+There is no `if (difficulty == …)` anywhere in the career layer and there must
+never be one, for the same reason Q3 forbids a parallel path for the user's
+batting posture: the career runs the same code at every setting, on different
+numbers.
+
 ---
 
 ## Q7. DRS and umpiring quality by level

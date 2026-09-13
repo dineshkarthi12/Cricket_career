@@ -228,3 +228,38 @@ The first task in an environment with an SDK:
 and then fix whatever that turns up. The screens are written against a state
 layer that is already tested, so what it turns up should be import paths and
 Compose API signatures rather than anything about cricket.
+
+
+---
+
+## Records, and choosing a career
+
+Two more screens, both pure `:presentation`.
+
+**Records** (`recordsState`). Batting and bowling tables by format, a table by
+rung of the ladder, and the milestone list newest-first. Everything here is a
+*formatting* decision and every one of them is a thing that can be wrong:
+
+- **Overs are six to the over.** 43 balls is `7.1`, and the dot is a separator,
+  not a decimal point. Writing it as a division is the classic scorecard bug and
+  there is a test that fails on it.
+- **A player with no average shows a dash**, not a zero and not an infinity.
+- **The asterisk survives all the way to the screen.** `140*` is a different
+  innings from `140`.
+- **A career total is grouped**: `1,204`, because it is read rather than parsed.
+- **A format he has never played does not appear**, and formats keep the order
+  the world lists them in — a table that reorders itself as a career widens is
+  disconcerting to read.
+
+**Career select** (`careerSelectState`). The list of careers, most recently
+played first, and the difficulty picker. Two things it gets right that are easy
+to get wrong: singulars ("1 season", "1 match") on the first screen a player
+ever sees, and a career with no matches yet saying "yet to play" rather than
+dividing by zero.
+
+The difficulty picker carries one sentence that is not decoration — that nothing
+about the cricket itself changes, the ball does not swing further and the
+player's attributes are not touched. A test asserts every difficulty's
+description contains it. A player who suspects the game is shading his
+attributes has no reason to trust any number it shows him afterwards, and the
+numbers are the product.
