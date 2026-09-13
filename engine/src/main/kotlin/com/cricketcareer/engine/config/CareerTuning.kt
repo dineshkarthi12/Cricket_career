@@ -596,17 +596,17 @@ data class WorldTuning(
      * Runs an average batter (standard 0.5) scores per innings against an
      * average attack, per format.
      *
-     * MEASURED, not chosen. Taken from 1200 T20, 700 List A and 300 four-day
+     * MEASURED, not chosen. Taken from 1400 T20, 1400 List A and 500 four-day
      * innings of Fixtures.averageXI on Pitch.AVERAGE, which returned batting
-     * averages of 27.62, 31.59 and 37.50. These means are those averages times
+     * averages of 24.67, 28.95 and 31.86. These means are those averages times
      * the corresponding dismissal rate below, so that
      * `WorldSim.average` reproduces the engine's own number.
      * Re-measure with WorldSimAgreementTest whenever the engine's calibration
      * moves; a divergence here is a bug, not a preference.
      */
-    val meanRunsT20: Double = 18.75,
-    val meanRunsListA: Double = 22.92,
-    val meanRunsMultiDay: Double = 31.44,
+    val meanRunsT20: Double = 19.24,
+    val meanRunsListA: Double = 22.58,
+    val meanRunsMultiDay: Double = 29.95,
 
     /**
      * Probability that a batter who batted was dismissed, per format.
@@ -620,11 +620,11 @@ data class WorldTuning(
 
     /**
      * Balls per run for an average batter, per format — the inverse of a
-     * strike rate. Measured alongside the means above: 140, 98 and 61.
+     * strike rate. Measured alongside the means above: 138, 94 and 54.
      */
-    val ballsPerRunT20: Double = 0.7296,
-    val ballsPerRunListA: Double = 1.0347,
-    val ballsPerRunMultiDay: Double = 1.6683,
+    val ballsPerRunT20: Double = 0.7272,
+    val ballsPerRunListA: Double = 1.0607,
+    val ballsPerRunMultiDay: Double = 1.8396,
 
     /**
      * Ratio of the standard deviation of an innings to its mean.
@@ -651,9 +651,9 @@ data class WorldTuning(
      * Balls per wicket for an average bowler against average batting, per
      * format. Measured from the same samples as the means above.
      */
-    val meanStrikeRateT20: Double = 17.5,
-    val meanStrikeRateListA: Double = 30.4,
-    val meanStrikeRateMultiDay: Double = 55.8,
+    val meanStrikeRateT20: Double = 17.9,
+    val meanStrikeRateListA: Double = 30.7,
+    val meanStrikeRateMultiDay: Double = 58.6,
 
     /**
      * How far form moves a reduced-form innings, as a fraction of the mean at

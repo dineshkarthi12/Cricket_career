@@ -1066,25 +1066,76 @@ Two supporting corrections came out of the same work:
   behind and the throw gets you every time, a tenth behind and you mostly dive
   in. Widening it from 0.16 s to 0.80 s is what finally separated the dot rate
   from the run-out rate — the two had been the same measurement.
-- **Turning is slower than running.** `turnCostSeconds` 1.00 → 1.15. Twos are
+- **Turning is slower than running.** `turnCostSeconds` 1.00 → 1.35. Twos are
   the only thing this touches, so it trims the run rate without moving the dot
   rate at all.
+- **A format's caution moves the threshold, not only the odds.** Expressing it
+  purely as a bonus to the tight-single gate let it saturate at both ends: a
+  Twenty20 batter sat pinned against the 0.97 ceiling and a multi-day batter
+  against the 0.03 floor, so moving the Twenty20 figure anywhere between 0.31
+  and 1.22 changed *nothing measurable*, and a four-day innings had no lever of
+  its own at all. The bonus now also shifts what counts as a comfortable run
+  (`comfortFormatWeight`), and runs above that threshold are not gated — which
+  is the honest statement of the difference. A Test batter turning down a single
+  he would take in a one-day game is refusing a run he counts as **tight**, and
+  what counts as tight is exactly what changes between the formats.
 
 ### What it bought
 
 | | Before | After | Band |
 |---|---|---|---|
-| T20 dot ball % | 36.5 | 34.5 | 30–36 |
-| T20 run out % of dismissals | 8.2 | 5.5 | 4–6 |
-| T20 run rate | 8.83 | 8.79 | 8.0–8.8 |
-| List A run out % | 8.6 | 6.0 | 4–6 |
+| T20 dot ball % | 36.5 | 35.3 | 30–36 |
+| T20 run out % of dismissals | 8.2 | 5.0 | 4–6 |
+| T20 run rate | 8.83 | 8.73 | 8.0–8.8 |
+| T20 stumped % | 0.4 | 1.1 | 1–3 |
+| List A run out % | 8.6 | 6.3 | 4–6 |
+| Four-day run rate | 3.86 | 3.47 | 3.0–3.5 |
 | Four-day run out % | 1.9 | 0.9 | — |
 
-Twenty20 now meets **every** band in the harness. The Twenty20 dot rate had been
-out since the first calibration in Phase 3 and is the last of the three faults
-the brief's Twenty20 targets exposed.
+Twenty20 now meets **every** band in the harness, and the four-day run rate is
+in band for the first time. The Twenty20 dot rate had been out since the first
+calibration in Phase 3; the four-day run rate had been out for just as long, and
+its cause turns out to have been the saturated lever above rather than the
+"twos are still slightly too easy" the Phase 3 log guessed at.
 
 The four-day figure is deliberately low and is not a miss: the brief states
 dismissal shares "all formats combined", and Test cricket really does have
 almost no run outs. What the model now produces — 5.5%, 6.0%, 0.9% by format —
 is the shape of the real game rather than one number copied into three.
+
+---
+
+## 18. Nobody could aim at a wide
+
+The white-ball wide rate would not move with the format. A fifty-over innings
+made 2.4% wides against a band of 3–5%, a Twenty20 made 3.2%, and the gap was
+immovable through every knob that touches line: the two formats share a wide
+guideline, a bowler population and a line-error model, so nothing in the tuning
+could separate them.
+
+The cause was that **`WIDE_OUTSIDE_OFF` was not in the list of lines a bowler
+can aim at.** Stage 1 picked from five bands — leg stump to the channel — so
+every wide in the game was an execution error, a ball that missed its target
+badly enough to cross the tramline. Two pieces of code downstream of that choice
+were therefore unreachable: the wide-yorker term, whose own comment claims
+"a good share of T20 wides actually come from" it, and the plan's preferred
+line whenever the plan named that band.
+
+That is not how white-ball cricket makes wides. A death bowler aims outside the
+tramline on purpose and accepts the call as the price of not being hit; so does
+any bowler to a batter coming at him. The line is now in the candidate set, with
+a base utility of −2.2 that keeps it rare, plus the death-overs term that was
+already written and a new one (`wideToAggressorWeight`) for a batter attacking:
+
+```
+utility(WIDE_OUTSIDE_OFF) = -2.2
+                          + 3.6 x deathBowling   (death overs, white ball)
+                          + 2.3 x batterAggression  (white ball)
+```
+
+`DOWN_LEG` stays out, and stays out deliberately: a leg-side wide is always an
+accident, never a plan.
+
+Measured: T20 wides 3.2% → 4.3%, List A 2.4% → 3.1%, both inside the 3–5% band.
+Four-day cricket is untouched — its wide guideline is judged on whether the
+batter could have played at it, and a red-ball bowler does not aim there.

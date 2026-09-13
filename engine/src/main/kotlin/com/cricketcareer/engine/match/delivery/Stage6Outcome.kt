@@ -977,7 +977,10 @@ object Stage6Outcome {
             val willingness = tuning.riskyRunMarginSeconds * (1.6 - judgement)
             val partnerWillingness = tuning.riskyRunMarginSeconds * (1.6 - partnerJudgement)
             if (judged < -willingness || partnerJudged < -partnerWillingness) break
-            if (judged < tuning.comfortableRunMarginSeconds) {
+            val formatBonus = context.tuning.formatIntent.forFormat(context.format).singleAppetiteBonus
+            val comfortThreshold = tuning.comfortableRunMarginSeconds -
+                tuning.comfortFormatWeight * formatBonus
+            if (judged < comfortThreshold) {
                 // Available, but not comfortable. A push to a close fielder is
                 // arithmetically a single and is refused nearly every time; a
                 // slightly tight one is usually taken. Treating both the same
@@ -985,7 +988,6 @@ object Stage6Outcome {
                 // Nobody scampers a tight one at a fielder already moving onto
                 // the ball with his arm cocked.
                 val attackedPenalty = if (attacking) 0.55 else 0.0
-                val formatBonus = context.tuning.formatIntent.forFormat(context.format).singleAppetiteBonus
                 val appetite = tuning.tightSingleAppetite + 0.35 * judgement +
                     0.20 * context.battingIntent + formatBonus - attackedPenalty
                 if (!rng.chance(appetite.coerceIn(0.03, 0.97))) break

@@ -516,3 +516,139 @@ standard errors of a **ratio estimator** — the innings-level spread of
 `runs − R × balls` — rather than a hand-picked epsilon of 12. Balls are heavily
 correlated inside one innings, so a ball-count standard error would be wrong by
 a large factor in the reassuring direction.
+
+
+---
+
+## 2026-09-13 — Phase 4, the List A and four-day calibration pass
+
+The pass the phase table asked for. Three model faults found, all by measuring;
+the knobs moved afterwards were consequences of the fixes, not the fixes.
+
+```
+                              T20            List A         Multi-day
+Run rate (per over)      8.73  ok        5.99  ok         3.47  ok
+Dot ball %              35.33  ok       43.51  ok        73.57  ok
+Boundary % of balls     17.31  ok        9.38  (13-15)    7.71  (9-11)
+Balls per wicket        18.17  ok       30.70  (35-40)   58.77  ok
+Wide %                   4.29  ok        3.07  ok         1.47  (1.5-2.5)
+No ball %                0.74  ok        0.79  ok         0.78  ok
+Byes+leg byes % of runs  1.65  ok        1.45  (1.5-2.5)  1.98  ok
+Catch success %         75.57  ok       76.26  ok        76.17  ok
+Caught % of dismissals  58.04  ok       60.77  ok        65.28  (56-62)
+Bowled % of dismissals  20.06  ok       18.97  ok        18.05  ok
+LBW % of dismissals     15.71  ok       13.55  ok        15.51  ok
+Run out % of dismissals  5.04  ok        6.29  (4-6)      0.88  (4-6)
+Stumped % of dismissals  1.14  ok        0.42  (1-3)      0.28  (1-3)
+```
+
+Samples: 1200 T20, 1200 List A, 400 four-day innings, seed 1.
+
+**Twenty20 meets all thirteen bands** — the first format to do so. The dot rate
+had been out since the first measurement in Phase 3.
+
+**The four-day run rate is in band for the first time** (3.86 → 3.47). The
+Phase 3 log guessed its cause as "twos still slightly too easy"; it was not.
+It was a saturated lever — see below.
+
+### What was actually wrong
+
+1. **Batters read the margin on a run off a stopwatch.** `SIMULATION_MODEL.md`
+   §17. Run outs were a dice roll over a run the batter could see he was losing,
+   and the single knob that bought singles bought run outs with them at the same
+   rate. They now judge the margin, with an error scaled by their running
+   judgement, and the man at the other end can send them back.
+2. **A bowler could not aim at a wide.** `SIMULATION_MODEL.md` §18.
+   `WIDE_OUTSIDE_OFF` was missing from Stage 1's candidate lines, so every wide
+   in the game was an accident and two downstream terms — including the
+   wide-yorker tactic — were unreachable code.
+3. **Each format's running caution saturated.** It was expressed only as a bonus
+   to the tight-single gate, which is clamped to [0.03, 0.97]. A Twenty20 batter
+   sat against the ceiling and a multi-day batter against the floor, so the
+   Twenty20 figure could be moved from 0.31 to 1.22 with *no measurable effect
+   whatsoever*, and a four-day innings had no lever of its own at all. Moving
+   the comfortable-run threshold as well as the odds is what finally reached the
+   four-day run rate.
+
+A fourth thing was found in the test suite rather than the engine:
+`DlsCalibrationTest` computed its standard error as if every ball were an
+independent sample, when several balls from one innings all record the same
+final score. That overstated a well-visited cell's precision by more than a
+factor of two and failed the test on a table well inside the noise. The error is
+now clustered on the innings.
+
+### Re-fitted after the engine moved
+
+- `DlsTuning`, from 8000 fifty-over innings.
+- `WorldTuning`'s tier-3 means, from 1400 / 1400 / 500 innings of
+  `Fixtures.averageXI`: batting averages 24.67, 28.95, 31.86.
+
+### Bands still not met, and why
+
+| Gap | Measured | Target | Status |
+|---|---|---|---|
+| List A boundary % | 9.4 | 13-15 | Arithmetically unsatisfiable with the dot and run-rate bands (see the Phase 3 entry). Reconfirmed this pass — see below. |
+| Multi-day boundary % | 7.7 | 9-11 | Same |
+| List A balls per wicket | 30.7 | 35-40 | Real gap. Measured cause below. |
+| List A wide % | 3.1 | 3-5 | In band, but only just |
+| Four-day wide % | 1.47 | 1.5-2.5 | 0.03 short; red-ball wides are execution error only, by design |
+| Four-day caught % | 65.3 | 56-62 | Band is "all formats combined"; a Test really is caught-heavy |
+| Run out % by format | 5.0 / 6.3 / 0.9 | 4-6 | Same. A Test really does have almost no run outs |
+| Stumped % | 1.1 / 0.4 / 0.3 | 1-3 | Real gap in the longer formats; spin has too few beaten-and-out-of-the-crease moments |
+
+**The List A boundary rate was chased again this pass and would not move.**
+The shot-utility reward term carries no fit factor, so aggression buys
+*mistimed* shots rather than well-struck ones. An experimental `rewardFitWeight`
+(reward scaled by `exp(fit x w)`) brought balls per wicket into band in all
+three formats at once for the first time — T20 23.3, List A 36.5, four-day 62.6
+— but collapsed the boundary rate everywhere (T20 17.4 → 12.0), and sweeping
+`rewardWeight` over 7–10 and `rewardFitWeight` over 0.30–0.55 recovered T20 to
+15.3 while **List A never rose above 8.8**. Reverted.
+
+The shot mix says why. Measured share of deliveries by stroke:
+
+```
+T20     straight drive 28.3%, back-foot defensive 16.4%, loft over leg 11.1%
+        mean powerFactor 0.643, exit speed 21.3 m/s, carry 13.9 m
+List A  back-foot defensive 23.8%, forward defensive 21.5%, straight drive 15.9%
+        mean powerFactor 0.427, exit speed 15.4 m/s, carry 5.6 m
+FC      forward defensive 29.3%, back-foot defensive 28.8%, push off side 10.8%
+        mean powerFactor 0.303
+```
+
+A fifty-over innings is 45% defensive strokes, and a defensive stroke cannot
+reach a boundary however the reward is priced. Raising the risk appetite far
+enough to change that mix takes the wicket rate and the dot rate out of band
+together — the §5 signal — which is why this stays a recorded finding rather
+than a tuned number. Real one-day cricket runs about 10-11% boundaries, and the
+engine is at 9.4%.
+
+**List A balls per wicket is a genuine gap, and the survival hazard names it.**
+Dismissals per 100 balls faced, by balls already faced:
+
+```
+             0-4    5-9   10-14  15-19  20-24  25-29  30-34   35+
+T20          5.74   5.43   5.28   5.58   4.98   4.48   5.41   4.44   (-23%)
+List A       3.04   3.10   3.21   3.40   3.10   3.38   3.21   3.25   ( +7%)
+Four-day     2.15   1.82   1.77   1.78   1.59   1.73   1.57   1.65   (-23%)
+```
+
+**The List A hazard does not fall as a batter settles**, and it is the only
+format where it does not. Flattening the phase risks as a diagnostic recovers
+part of it (3.15 → 2.95, about -6%) but not the other two-thirds, so the innings
+phase is only part of the cause: an unsettled fifty-over batter is protected by
+`settlednessCaution` about as much as the settling penalty costs him, and the
+two cancel. Twenty20 cannot defend its way out of trouble and four-day cricket
+is played against a cordon, so both show the fall. Fixing it means making the
+caution and the perception penalty stop cancelling, which is a change to the
+settling model rather than a number, and it is the thing to do next in this
+area.
+
+### On the shared bands
+
+The brief states dismissal shares "all formats combined", and this pass makes
+the case for reading them that way rather than per format. Run outs now come out
+at 5.0 / 6.3 / 0.9 per cent by format. That is the shape of the real game — a
+Test side barely ever runs one out — and it is *only* reachable because the
+running model now has the batter judging rather than knowing. The previous model
+could produce one number for all three, which is precisely what was wrong with it.

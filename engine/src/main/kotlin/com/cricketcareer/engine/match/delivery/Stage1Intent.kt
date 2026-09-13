@@ -214,6 +214,13 @@ object Stage1Intent {
         if (band == LineBand.WIDE_OUTSIDE_OFF && deathOvers && !context.format.isMultiDay) {
             utility += 3.6 * context.bowlerSkill(Attribute.DEATH_BOWLING)
         }
+        // Going wider still to a batter who is coming at you. Not a death-overs
+        // tactic but a white-ball one: the harder the batting side is going, the
+        // less there is to hit, and some of it is called.
+        if (band == LineBand.WIDE_OUTSIDE_OFF && !context.format.isMultiDay) {
+            utility += context.tuning.intent.wideToAggressorWeight *
+                context.strikerSkill(Attribute.AGGRESSION)
+        }
         // A bouncer is bowled at the body, not in the channel.
         if (type == DeliveryType.BOUNCER && (band == LineBand.MIDDLE || band == LineBand.OFF_STUMP)) utility += 1.2
         // A yorker at the stumps, or wide of them at the death.
@@ -290,8 +297,19 @@ object Stage1Intent {
         LengthBand.HALF_VOLLEY, LengthBand.FULLISH, LengthBand.GOOD, LengthBand.BACK_OF_LENGTH,
     )
 
+    /**
+     * The lines a bowler can aim at.
+     *
+     * [LineBand.DOWN_LEG] is absent because nobody aims there — a leg-side wide
+     * is always an execution error. [LineBand.WIDE_OUTSIDE_OFF] is here because
+     * bowlers genuinely do aim outside the tramline, at the death and against a
+     * batter coming at them, and accept the wides that come with it. Leaving it
+     * out made every wide in the game an accident, and the wide-yorker and
+     * aim-wide terms in [lineUtility] unreachable code: a fifty-over innings
+     * produced 2.4% wides against a white-ball band of 3-5%.
+     */
     private val LINES = listOf(
         LineBand.LEG_STUMP, LineBand.MIDDLE, LineBand.OFF_STUMP,
-        LineBand.FOURTH_STUMP, LineBand.CHANNEL,
+        LineBand.FOURTH_STUMP, LineBand.CHANNEL, LineBand.WIDE_OUTSIDE_OFF,
     )
 }

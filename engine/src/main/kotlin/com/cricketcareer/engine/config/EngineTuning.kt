@@ -100,6 +100,22 @@ data class IntentTuning(
     /** Chance per ball that a bowler re-draws his plan for the batter he is bowling at. */
     val planRedrawChance: Double = 1.0 / 6.0,
 
+    /**
+     * How much a batter who is coming at him pushes a white-ball bowler wide of
+     * off stump.
+     *
+     * Bowling further and further from the batter's reach is the standard
+     * answer to a side going hard at a total, and a share of it gets called.
+     * It is a large part of why a fifty-over innings produces more wides than a
+     * first-class one even though the tramline is painted in the same place —
+     * the wide *yorker* alone only explains the last ten overs, and a fifty-over
+     * innings was making 2.3% wides against a white-ball band of 3-5%.
+     *
+     * Nothing here applies to multi-day cricket, where the off-side wide is
+     * judged on whether the batter could have played at it.
+     */
+    val wideToAggressorWeight: Double = 2.30,
+
     /** Boundaries in the last three balls that force an immediate plan change. */
     val planFailureBoundaries: Int = 2,
 
@@ -543,7 +559,7 @@ data class OutcomeTuning(
     /** Running: batter speed range in m/s, and the cost of turning for a second run. */
     val runSpeedSlowest: Double = 6.6,
     val runSpeedFastest: Double = 8.6,
-    val turnCostSeconds: Double = 1.15,
+    val turnCostSeconds: Double = 1.35,
 
     /**
      * Time for a fielder who has cut the ball off inside the ring to gather it
@@ -634,6 +650,26 @@ data class OutcomeTuning(
      * batters refuse a lot of technically available singles.
      */
     val comfortableRunMarginSeconds: Double = 0.74,
+
+    /**
+     * How much a format's appetite for a single also moves the cushion a batter
+     * wants before he sets off without thinking.
+     *
+     * Expressing the format's caution *only* as a bonus to the tight-single
+     * gate let it saturate at both ends: a Twenty20 batter sat pinned against
+     * the 0.97 ceiling and a multi-day batter against the 0.03 floor, so
+     * neither format had any working lever on its own running at all — moving
+     * the Twenty20 figure between 0.31 and 1.22 changed nothing whatsoever, and
+     * the only thing that reached a four-day innings was a knob shared with the
+     * other two.
+     *
+     * Shifting the threshold as well as the odds does reach them, because runs
+     * above the threshold are not gated at all: a Test batter turning down a
+     * single he would take in a one-day game is refusing a run he counts as
+     * *tight*, and what counts as tight is exactly what changes between the
+     * formats.
+     */
+    val comfortFormatWeight: Double = 0.30,
 
     /** Chance a batter takes a tight single anyway, at running judgement 50. */
     val tightSingleAppetite: Double = 0.49,
