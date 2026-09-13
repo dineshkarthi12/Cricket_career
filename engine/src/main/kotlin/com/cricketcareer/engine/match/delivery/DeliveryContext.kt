@@ -33,6 +33,15 @@ class DeliveryContext(
     val pressure: Double,
     val field: FieldSetting,
     /**
+     * What each stroke is worth against [field], precomputed.
+     *
+     * Built once when the captain sets the field and shared by every ball of
+     * the over — see [FieldRewards]. It is passed in rather than derived here
+     * because a `DeliveryContext` is built per ball, and deriving it here would
+     * put the work straight back.
+     */
+    val fieldRewards: FieldRewards,
+    /**
      * The fielding side, by id. Needed because a catch is taken by whoever is
      * standing there, and his hands are the ones that matter — reading the
      * bowler's or the batter's attributes instead would make every catch in the

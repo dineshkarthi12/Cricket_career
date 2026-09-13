@@ -23,7 +23,7 @@ data class HarnessArgs(
 ) {
     companion object {
         val KNOWN_FORMATS = listOf("T20", "LIST_A", "FIRST_CLASS", "TEST")
-        val KNOWN_REPORTS = listOf("calibration", "scorecard", "players", "export", "career", "seed", "dls", "none")
+        val KNOWN_REPORTS = listOf("calibration", "scorecard", "players", "export", "career", "seed", "dls", "bench", "none")
 
         fun parse(args: Array<String>): HarnessArgs {
             val values = LinkedHashMap<String, String>()

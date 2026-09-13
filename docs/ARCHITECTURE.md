@@ -236,6 +236,63 @@ Phase 2 rather than retrofitted in Phase 8:
 - Measured with a JMH-style benchmark in the harness from Phase 2, so a
   regression is caught the day it lands, not in Phase 8.
 
+### Measured, Phase 8
+
+The benchmark this section always said should exist now does:
+
+```
+./gradlew :sim-harness:run --args="--report=bench --format=T20 --matches=600"
+```
+
+It warms the JIT, then runs three alternating rounds of each tier and reports
+the best of them, because running one tier to completion and then the next
+charges the second for collecting the first's garbage — the first version of
+the report duly said tier B was *slower* than tier A, which is impossible and
+was entirely an artefact of the measurement.
+
+| | measured | x5 (phone) | budget | |
+|---|---|---|---|---|
+| Tier A — watched, events kept | 5.10 us/ball | 25.5 us | 1000 us | ok, 39x headroom |
+| Tier B — rivals, events discarded | 5.04 us/ball | 25.2 us | 8 us | **3.2x over** |
+| Tier C — reduced-form world | 0.28 us/match | 1.4 us | 50 us | ok, 35x headroom |
+
+A whole season off-screen comes to **7.3 s** at the pessimistic x5, and 4.4 s at
+the optimistic x3. So the headline requirement — a season in seconds — holds,
+and the derived 5 s budget holds only at the optimistic end.
+
+**What the first measurement found.** Two of this section's own rules were being
+broken by code that looked like it kept them:
+
+- **The sink strategy saved the branch and not the allocation.** A `BallEvent`
+  has sixteen fields and was constructed *before* `accept` could throw it away,
+  so a tier-B innings allocated one per ball and handed it to an empty method.
+  A sink now declares `wantsEvents` and the simulator does not build one for a
+  sink that does not want it.
+- **The field's gaps were recomputed twenty times a ball.** Shot selection
+  scores every stroke in the book on every delivery, and each score walked the
+  whole field to find the gap it would be played into — two hundred-odd angular
+  comparisons a ball to answer a question that only changes when the captain
+  moves somebody, which he does once an over. `FieldRewards` computes it once
+  per field. Worth 17%, and by some distance the largest single win available.
+
+**And one that looked obvious and was not.** A profile put `EffectiveSkill.of`
+at a quarter of all samples — shot selection asks for the striker's skill once
+per stroke, the bowler's plan once per line and length, and every call re-folds
+the same form, confidence and fatigue figures. Memoising it per delivery moved
+the measured figure by 0.16 us/ball against run-to-run noise of +-0.15, so it
+bought nothing and cost three array allocations a ball. Reverted. The JIT had
+already hoisted it, and a profile counting *samples inside an inlined method* is
+not the same thing as a cost that can be removed.
+
+**What would close the remaining gap**, in the order the allocation profile puts
+them: the per-ball `DoubleArray` pairs behind every softmax (shot selection,
+plus delivery type, length and line — six or eight arrays a ball, and by far the
+largest source of garbage), then the per-ball value objects each stage returns.
+Both are the "reused mutable scratch behind an interface" this section already
+specifies and neither was built, because the engine's correctness came first and
+the budget was not measured until there was cricket worth measuring. It is a
+real piece of work against a freshly calibrated engine, not a tuning pass.
+
 ---
 
 ## 8. Tuning configuration

@@ -263,3 +263,34 @@ player's attributes are not touched. A test asserts every difficulty's
 description contains it. A player who suspects the game is shading his
 attributes has no reason to trust any number it shows him afterwards, and the
 numbers are the product.
+
+
+---
+
+## Charts a screen reader can read
+
+A worm graph is four hundred points of pure shape. The usual accessibility
+answer — a content description reading "worm chart" — tells a blind player that
+a chart exists and nothing whatever about the cricket in it.
+
+`ChartDescriptions` writes each chart out the way a commentator would describe
+it: what the score is and where the innings got away, which over cost the most
+and which ones took wickets, where the bowler was landing it, which side of the
+wicket the runs went. The sighted player reads those facts off the picture and
+the blind player reads the same facts off the text. Neither is a reduced version
+of the other, and that is the standard — a text alternative that is a summary of
+*the chart* rather than of the data is an apology, not an alternative.
+
+Two rules it follows, both of them things that can be silently wrong:
+
+- **It speaks the engine's own vocabulary.** `LengthBand` and `LineBand` already
+  name every length and line, boundaries and all, so the descriptions read them
+  rather than inventing a second set. A screen reader calling 7 metres "back of
+  a length" while the commentary beside it says "good length" would be worse
+  than saying nothing.
+- **The wagon wheel's sectors are checked against the field.** The bearing runs
+  clockwise from straight down the ground through the off side — cover at 56
+  degrees, point at 96, the keeper at 180, square leg at 273 — and naming them
+  the other way round is an easy mistake that nothing else in the project would
+  catch. So the test asserts each sector against `FieldPosition`'s own bearings
+  rather than against numbers typed twice.

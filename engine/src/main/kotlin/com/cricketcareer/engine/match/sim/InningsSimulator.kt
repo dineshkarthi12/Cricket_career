@@ -19,6 +19,7 @@ import com.cricketcareer.engine.match.event.BallEvent
 import com.cricketcareer.engine.match.event.BallEventSink
 import com.cricketcareer.engine.match.event.BallId
 import com.cricketcareer.engine.match.field.FieldCaptain
+import com.cricketcareer.engine.match.delivery.FieldRewards
 import com.cricketcareer.engine.match.field.FieldSetting
 import com.cricketcareer.engine.match.field.MatchPhase
 import com.cricketcareer.engine.match.pitch.PitchEvolution
@@ -127,6 +128,10 @@ class InningsSimulator(
     private var ballsSinceWicket = 0
     private var currentField: FieldSetting? = null
 
+    // What every stroke is worth against [currentField], built with it and
+    // shared by all six balls of the over. See FieldRewards.
+    private var currentFieldRewards: FieldRewards? = null
+
     /**
      * Bowl the innings out.
      *
@@ -188,6 +193,7 @@ class InningsSimulator(
                 bowlerIsSpin = bowler.bowlingStyle.isSpin,
                 fieldersOutsideLimit = format.fieldersOutsideCircleLimit(state.completedOvers),
             )
+            currentFieldRewards = FieldRewards.of(currentField!!)
 
             val overStartedAt = state.legalBalls
             while (!state.isComplete && state.legalBalls - overStartedAt < MatchFormat.BALLS_PER_OVER) {
@@ -300,6 +306,7 @@ class InningsSimulator(
             situation = situation,
             pressure = pressure,
             field = currentField!!,
+            fieldRewards = currentFieldRewards!!,
             fieldingSide = byId,
             tuning = tuning,
             strikerBallsFaced = ballsFaced.getOrDefault(striker.id, 0),
@@ -331,6 +338,8 @@ class InningsSimulator(
         recentOutcomes.addLast(outcome)
         while (recentOutcomes.size > tuning.pressure.dotWindowBalls) recentOutcomes.removeFirst()
 
+        // Built only when something is going to read it: see BallEventSink.
+        if (!sink.wantsEvents) return
         sink.accept(
             BallEvent(
                 id = ballId,

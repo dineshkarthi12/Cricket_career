@@ -136,11 +136,19 @@ object CalibrationReport {
         )
     }
 
-    private fun formatFor(name: String): MatchFormat = when (name) {
-        "T20" -> MatchFormat.T20
-        "LIST_A" -> MatchFormat.LIST_A
-        "FIRST_CLASS" -> MatchFormat.FOUR_DAY
-        "TEST" -> MatchFormat.TEST
-        else -> MatchFormat.T20
-    }
+}
+
+/**
+ * The `--format=` argument, as a format.
+ *
+ * Shared by every report so that two of them cannot disagree about what
+ * `FIRST_CLASS` means — which would make a benchmark and a calibration run
+ * measure different cricket while both claiming the same label.
+ */
+fun formatFor(name: String): MatchFormat = when (name) {
+    "T20" -> MatchFormat.T20
+    "LIST_A" -> MatchFormat.LIST_A
+    "FIRST_CLASS" -> MatchFormat.FOUR_DAY
+    "TEST" -> MatchFormat.TEST
+    else -> MatchFormat.T20
 }

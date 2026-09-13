@@ -259,7 +259,7 @@ tests, wait for approval.
 | 5 | Career layer: ladder, selection AI, training, form, fatigue, injury, ageing, contracts, world season sim | **Done — see docs/CAREER_MODEL.md** |
 | 6 | Compose UI: match view, scorecard, charts, career hub, stats, inbox, training | **In progress — `:presentation` covers match, scorecard, charts, career, profile, review, rain, training, selection, records and career-select, all tested; `:app` written but never compiled** |
 | 7 | Save/load, multiple careers, difficulty, editable database, records, retirement | **Done in `:engine` and `:presentation` — editable seed database, fixtures, ladder, progression, retirement, the save format and its two version numbers, multiple careers, three difficulties as a pure transform on `CareerTuning`, and the record book. Writing the bytes to disk is `:data`'s, which has never been compiled** |
-| 8 | Performance, battery, APK size, accessibility, polish | Not started |
+| 8 | Performance, battery, APK size, accessibility, polish | **In progress — the performance benchmark ARCHITECTURE §7 always specified now exists (`--report=bench`), two real hot-path faults are fixed and the remaining gap is measured and named; charts have text alternatives a screen reader can actually use. Battery and APK size need a device and an SDK** |
 
 ---
 

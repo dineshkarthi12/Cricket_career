@@ -60,9 +60,29 @@ data class BallEvent(
 fun interface BallEventSink {
     fun accept(event: BallEvent)
 
+    /**
+     * Whether building the event is worth doing at all.
+     *
+     * The strategy alone was not enough. A `BallEvent` holds sixteen fields and
+     * is constructed *before* `accept` can decide to throw it away, so a tier-B
+     * innings was allocating one per ball and handing it straight to an empty
+     * method — the branch was saved and the allocation was not. Measured, that
+     * put tier B **over its own budget while running slower than tier A**,
+     * which is the shape of a benchmark telling you the model is wrong rather
+     * than the number.
+     *
+     * A sink that does not want events says so here and the simulator does not
+     * build one. The default is true, because a sink written to look at events
+     * obviously wants them and should not have to say so.
+     */
+    val wantsEvents: Boolean get() = true
+
     companion object {
-        /** Costs one call and nothing else. */
-        val Discard: BallEventSink = BallEventSink { }
+        /** Costs one property read and nothing else — not even the event. */
+        val Discard: BallEventSink = object : BallEventSink {
+            override fun accept(event: BallEvent) = Unit
+            override val wantsEvents: Boolean get() = false
+        }
     }
 }
 

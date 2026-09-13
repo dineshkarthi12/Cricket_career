@@ -193,7 +193,7 @@ object Stage4Read {
         }
 
         val skill = context.strikerSkill(shot.keyAttribute)
-        val reward = FieldGaps.reward(shot, context.field)
+        val reward = context.fieldRewards[shot]
 
         // Risk appetite buys the shot's reward; caution charges for its danger.
         // A defensive stroke suits a far wider range of deliveries than a loft,
@@ -253,5 +253,31 @@ object FieldGaps {
     fun angularSeparation(a: Double, b: Double): Double {
         val raw = abs(a - b) % 360.0
         return if (raw > 180.0) 360.0 - raw else raw
+    }
+}
+
+
+/**
+ * What every stroke in the book is worth against one field.
+ *
+ * Shot selection scores all twenty-odd strokes on every ball, and each score
+ * needs the gap the stroke would be played into — which means walking the whole
+ * field per stroke, per ball. That was two hundred-odd angular comparisons a
+ * delivery to answer a question whose answer only changes when the captain
+ * moves somebody, which he does once an over.
+ *
+ * So it is computed once per field and read by index. Not a cache and not
+ * global state: it is an immutable value the simulator builds when it sets the
+ * field and hands to every ball of that over, which keeps `:engine` free of the
+ * mutable statics CLAUDE.md §4 bans and stays correct when ten thousand matches
+ * run on ten threads at once.
+ */
+class FieldRewards private constructor(private val byShot: DoubleArray) {
+
+    operator fun get(shot: Shot): Double = byShot[shot.ordinal]
+
+    companion object {
+        fun of(field: FieldSetting): FieldRewards =
+            FieldRewards(DoubleArray(Shot.entries.size) { FieldGaps.reward(Shot.entries[it], field) })
     }
 }
