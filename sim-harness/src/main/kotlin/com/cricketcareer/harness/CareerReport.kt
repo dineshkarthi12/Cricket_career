@@ -8,6 +8,8 @@ import com.cricketcareer.engine.career.FixtureList
 import com.cricketcareer.engine.career.Ladder
 import com.cricketcareer.engine.career.Movement
 import com.cricketcareer.engine.career.Progression
+import com.cricketcareer.engine.career.Retirement
+import com.cricketcareer.engine.career.Selection
 import com.cricketcareer.engine.career.Season
 import com.cricketcareer.engine.career.SeasonExposure
 import com.cricketcareer.engine.career.SeasonRecord
@@ -20,6 +22,7 @@ import com.cricketcareer.engine.model.player.Attribute
 import com.cricketcareer.engine.model.player.Player
 import com.cricketcareer.engine.model.player.PlayerId
 import com.cricketcareer.engine.model.world.LadderLevel
+import com.cricketcareer.engine.model.world.MatchFormat
 import com.cricketcareer.engine.rng.SimRandom
 import com.cricketcareer.engine.seed.SeedDatabase
 import java.io.File
@@ -81,6 +84,12 @@ object CareerReport {
         var world = database
         var retired = 0
         var debutants = 0
+        // A career needs a memory of its own best, because a cricketer is
+        // driven out by being unable to do what he *could* do.
+        var peakStandard = 0.0
+        var accumulatedDamage = 0
+        var idleSeasons = 0
+        var farewell: com.cricketcareer.engine.career.RetirementProspect? = null
 
         println("Career report - $seasons seasons in the shipped world, seed ${args.seed}")
         println("Subject: ${subject.name.full} (${subject.role.displayName}), ${subject.region}")
@@ -138,6 +147,28 @@ object CareerReport {
             position = verdict.position
             val nextSeason = LocalDate.of(2027 + year, SEASON_START_MONTH, 1)
 
+            peakStandard = maxOf(peakStandard, Selection.standardFor(subject, MatchFormat.LIST_A))
+            // Only what an injury actually took for good. The running total is
+            // the career layer's memory: nothing on the player carries it.
+            accumulatedDamage += subject.state.injury?.permanentDamage ?: 0
+            idleSeasons = if (record.matches == 0) idleSeasons + 1 else 0
+
+            val prospect = Retirement.consider(
+                player = subject,
+                age = clock.ageOn(subject, to),
+                level = at.level,
+                peakStandard = peakStandard,
+                seasonsWithoutCricket = idleSeasons,
+                careerMatches = career.sumOf { it.matches },
+                accumulatedDamage = accumulatedDamage,
+                nowhereLeftToPlay = false,
+                tuning = tuning,
+            )
+            if (Retirement.decide(prospect, careerRandom.stream(CareerStreams.AGEING))) {
+                farewell = prospect
+                return@repeat
+            }
+
             // A year happens to everybody else too. His own player is excluded:
             // the career clock below advances him through the cricket he
             // actually played, and passing him through here would age him twice.
@@ -169,6 +200,13 @@ object CareerReport {
         println()
         summarise(career, checkNotNull(position))
         println("        $retired cricketers retired around him, $debutants came through")
+        farewell?.let { prospect ->
+            println()
+            println("Retired.")
+            prospect.pressures.filter { it.isReal }.forEach { pressure ->
+                println("  %3.0f%%  %s".format(100 * pressure.weight, pressure.reason))
+            }
+        }
     }
 
     private fun load(directory: String): SeedDatabase? {

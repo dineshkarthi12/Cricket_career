@@ -373,7 +373,49 @@ user's own.
 
 ---
 
-## 12. Determinism
+## 12. Retirement
+
+Deliberately **not** `WorldAgeing`'s retirement, which is a hazard roll behind
+the scenes: a name comes off a squad list and nobody asks why. That is right for
+the two thousand nine hundred cricketers nobody is playing. It is wrong for the
+one who is.
+
+`Retirement` is the last screen of somebody's career and it owes him an answer,
+so every term produces a **sentence**:
+
+| Pressure | What it is |
+|---|---|
+| Age | The slowest, and the only one nobody escapes |
+| Decline | Being unable to do what you *could* do — measured against your own peak, not against the rung |
+| Idleness | Seasons without cricket. The sharpest, and what retires the player who is still good enough and cannot get in |
+| Damage | Old injuries that did not mend. Not the one he has now — that heals |
+| Fulfilment | Cuts both ways, and the second half is commoner: a player still chasing a first cap hangs on past the point of sense |
+
+They **add**, and none of them ends a career on its own at a plausible age. That
+is the point: cricketers stop for two or three reasons at once, and a model
+where one was sufficient retires people for their birthday.
+
+The pressures come back as shares of the whole, strongest first, so a screen can
+say which of them is doing the work rather than printing five raw numbers
+nobody can compare.
+
+Two inputs live in the career layer rather than on the player, because they are
+**memory**: his peak standard (a cricketer is driven out by being unable to do
+what he could do, and that needs a record of what that was) and the attribute
+points lost for good to past injuries (`Injury.permanentDamage` records what one
+injury took; the running total is nobody's but the career's).
+
+`forced` marks the one case where "he chose to retire" would be a lie: nobody at
+any level will have him, or the calendar has run out.
+
+**A caution learned the hard way.** A rung's `standard` is the standard of the
+*cricket*, not a bar every player in it clears — an international side is 0.92
+and most of it is below that. Read as a bar, the model told a forty-two-year-old
+averaging fifty-three that he was no longer up to this level.
+
+---
+
+## 13. Determinism
 
 Career streams are derived from the **career seed** the same way match streams
 are derived from a match seed:

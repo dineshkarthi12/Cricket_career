@@ -20,6 +20,7 @@ data class CareerTuning(
     val contracts: ContractTuning = ContractTuning(),
     val world: WorldTuning = WorldTuning(),
     val worldAgeing: WorldAgeingTuning = WorldAgeingTuning(),
+    val retirement: RetirementTuning = RetirementTuning(),
 ) {
     companion object {
         /** The calibration reference. Every career test measures against this. */
